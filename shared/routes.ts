@@ -2,9 +2,10 @@ import { z } from 'zod';
 import { 
   insertProductSchema, products, 
   insertClientSchema, clients, 
-  insertExpenseSchema, expenses, 
+  insertMovementSchema, movements, 
   insertCashRegisterSchema, cashRegisters,
   createSalePayloadSchema,
+  createPurchasePayloadSchema,
   users,
   insertUserSchema
 } from './schema';
@@ -16,6 +17,11 @@ export const errorSchemas = {
 };
 
 export const api = {
+  auth: {
+    me: { method: 'GET' as const, path: '/api/me' as const, responses: { 200: z.any().nullable() } },
+    login: { method: 'POST' as const, path: '/api/login' as const, input: z.object({ username: z.string(), password: z.string() }), responses: { 200: z.any(), 401: errorSchemas.validation } },
+    logout: { method: 'POST' as const, path: '/api/logout' as const, responses: { 200: z.object({ success: z.boolean() }) } },
+  },
   users: {
     list: { method: 'GET' as const, path: '/api/users' as const, responses: { 200: z.array(z.custom<typeof users.$inferSelect>()) } },
     create: { method: 'POST' as const, path: '/api/users' as const, input: insertUserSchema, responses: { 201: z.custom<typeof users.$inferSelect>(), 400: errorSchemas.validation } },
@@ -37,9 +43,13 @@ export const api = {
     create: { method: 'POST' as const, path: '/api/sales' as const, input: createSalePayloadSchema, responses: { 201: z.any() } },
     get: { method: 'GET' as const, path: '/api/sales/:id' as const, responses: { 200: z.any(), 404: errorSchemas.notFound } },
   },
-  expenses: {
-    list: { method: 'GET' as const, path: '/api/expenses' as const, responses: { 200: z.array(z.custom<typeof expenses.$inferSelect>()) } },
-    create: { method: 'POST' as const, path: '/api/expenses' as const, input: insertExpenseSchema, responses: { 201: z.custom<typeof expenses.$inferSelect>(), 400: errorSchemas.validation } },
+  purchases: {
+    list: { method: 'GET' as const, path: '/api/purchases' as const, responses: { 200: z.array(z.any()) } },
+    create: { method: 'POST' as const, path: '/api/purchases' as const, input: createPurchasePayloadSchema, responses: { 201: z.any() } },
+  },
+  movements: {
+    list: { method: 'GET' as const, path: '/api/movements' as const, responses: { 200: z.array(z.custom<typeof movements.$inferSelect>()) } },
+    create: { method: 'POST' as const, path: '/api/movements' as const, input: insertMovementSchema, responses: { 201: z.custom<typeof movements.$inferSelect>(), 400: errorSchemas.validation } },
   },
   cashRegisters: {
     current: { method: 'GET' as const, path: '/api/cash-registers/current' as const, responses: { 200: z.any() } },

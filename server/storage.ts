@@ -6,14 +6,18 @@ import {
   clients, Client, InsertClient,
   sales, Sale, InsertSale,
   saleItems, SaleItem, InsertSaleItem,
-  expenses, Expense, InsertExpense,
+  movements, Movement, InsertMovement,
+  purchases, Purchase, InsertPurchase,
+  purchaseItems, PurchaseItem, InsertPurchaseItem,
   cashRegisters, CashRegister, InsertCashRegister,
-  CreateSalePayload
+  CreateSalePayload, CreatePurchasePayload
 } from "@shared/schema";
 
 export interface IStorage {
   // Users
   getUsers(): Promise<User[]>;
+  getUser(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
 
   // Products
@@ -35,9 +39,13 @@ export interface IStorage {
   getSale(id: number): Promise<any | undefined>;
   createSale(payload: CreateSalePayload): Promise<any>;
 
-  // Expenses
-  getExpenses(): Promise<Expense[]>;
-  createExpense(expense: InsertExpense): Promise<Expense>;
+  // Purchases
+  getPurchases(): Promise<any[]>;
+  createPurchase(payload: CreatePurchasePayload): Promise<any>;
+
+  // Movements
+  getMovements(): Promise<Movement[]>;
+  createMovement(movement: InsertMovement): Promise<Movement>;
 
   // Cash Register
   getCurrentCashRegister(): Promise<CashRegister | undefined>;
@@ -48,6 +56,14 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   async getUsers(): Promise<User[]> {
     return await db.select().from(users);
+  }
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
   async createUser(user: InsertUser): Promise<User> {
     const [created] = await db.insert(users).values(user).returning();
@@ -147,7 +163,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSale(payload: CreateSalePayload): Promise<any> {
-    // Basic implementation (in a real scenario we use a transaction, but using separate queries here for Drizzle simplicity unless tx is perfectly configured)
     const [sale] = await db.insert(sales).values(payload.sale).returning();
     
     const itemsWithSaleId = payload.items.map(item => ({
@@ -177,12 +192,54 @@ export class DatabaseStorage implements IStorage {
     return this.getSale(sale.id);
   }
 
-  async getExpenses(): Promise<Expense[]> {
-    return await db.select().from(expenses).orderBy(desc(expenses.createdAt));
+  async getPurchases(): Promise<any[]> {
+    const allPurchases = await db.select().from(purchases).orderBy(desc(purchases.createdAt));
+    const result = [];
+    for (const p of allPurchases) {
+      const items = await db.select({
+        id: purchaseItems.id,
+        purchaseId: purchaseItems.purchaseId,
+        productId: purchaseItems.productId,
+        quantity: purchaseItems.quantity,
+        price: purchaseItems.price,
+        product: products
+      })
+      .from(purchaseItems)
+      .leftJoin(products, eq(purchaseItems.productId, products.id))
+      .where(eq(purchaseItems.purchaseId, p.id));
+      
+      result.push({ ...p, items });
+    }
+    return result;
+  }
+
+  async createPurchase(payload: CreatePurchasePayload): Promise<any> {
+    const [purchase] = await db.insert(purchases).values(payload.purchase).returning();
+    
+    const itemsWithPurchaseId = payload.items.map(item => ({
+      ...item,
+      purchaseId: purchase.id
+    }));
+    
+    await db.insert(purchaseItems).values(itemsWithPurchaseId);
+    
+    // Update stock
+    for (const item of payload.items) {
+      const [product] = await db.select().from(products).where(eq(products.id, item.productId));
+      if (product) {
+        await db.update(products).set({ stock: product.stock + item.quantity }).where(eq(products.id, item.productId));
+      }
+    }
+    
+    return purchase;
+  }
+
+  async getMovements(): Promise<Movement[]> {
+    return await db.select().from(movements).orderBy(desc(movements.createdAt));
   }
   
-  async createExpense(expense: InsertExpense): Promise<Expense> {
-    const [created] = await db.insert(expenses).values(expense).returning();
+  async createMovement(movement: InsertMovement): Promise<Movement> {
+    const [created] = await db.insert(movements).values(movement).returning();
     return created;
   }
 
