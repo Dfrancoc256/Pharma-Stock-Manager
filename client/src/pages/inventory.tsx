@@ -19,6 +19,8 @@ export default function InventoryPage() {
   const [cost, setCost] = useState("");
   const [stock, setStock] = useState("0");
   const [barcode, setBarcode] = useState("");
+  const [casa, setCasa] = useState("");
+  const [categoria, setCategoria] = useState("");
 
   const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -30,7 +32,9 @@ export default function InventoryPage() {
       price: parseFloat(price),
       cost: parseFloat(cost),
       stock: parseInt(stock, 10),
-      barcode
+      barcode,
+      casa,
+      categoria
     }, {
       onSuccess: () => {
         setIsAddOpen(false);
@@ -145,6 +149,17 @@ export default function InventoryPage() {
                 <div>
                   <label className="block text-sm font-semibold mb-1">Código de Barras</label>
                   <input className="input-field" value={barcode} onChange={e => setBarcode(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Casa</label>
+                  <input className="input-field" value={casa} onChange={e => setCasa(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Categoría</label>
+                  <input className="input-field" value={categoria} onChange={e => setCategoria(e.target.value)} />
                 </div>
               </div>
 

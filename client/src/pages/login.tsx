@@ -8,11 +8,14 @@ export default function LoginPage() {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
 
+  useEffect(() => {
+    if (user) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
+
   if (isLoading) return null;
-  if (user) {
-    setLocation("/");
-    return null;
-  }
+  if (user) return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">

@@ -23,6 +23,8 @@ export function useCreateProduct() {
         ...data,
         price: data.price.toString(),
         cost: data.cost.toString(),
+        precioCompra: data.cost.toString(), // Mapping cost to precioCompra for schema
+        precioUnidad: data.price.toString(), // Mapping price to precioUnidad for schema
       };
       
       const res = await fetch(api.products.create.path, {
