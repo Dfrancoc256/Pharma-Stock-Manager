@@ -22,8 +22,9 @@ export default function POSPage() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [status, setStatus] = useState<"paid" | "credit">("paid");
   const [clientId, setClientId] = useState<number | "">("");
+  const [amountPaid, setAmountPaid] = useState("");
   
-  const [receiptData, setReceiptData] = useState<{items: CartItem[], total: number, date: Date} | null>(null);
+  const [receiptData, setReceiptData] = useState<{items: CartItem[], total: number, date: Date, paid?: number, change?: number} | null>(null);
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -31,7 +32,7 @@ export default function POSPage() {
   );
 
   const cartTotal = useMemo(() => {
-    return cart.reduce((acc, item) => acc + (parseFloat(item.product.price) * item.quantity), 0);
+    return cart.reduce((acc, item) => acc + (parseFloat(item.product.precioUnidad || item.product.price) * item.quantity), 0);
   }, [cart]);
 
   const addToCart = (product: Product) => {
@@ -64,6 +65,10 @@ export default function POSPage() {
       alert("Seleccione un cliente para la venta al fiado");
       return;
     }
+    if (status === "paid" && (!amountPaid || parseFloat(amountPaid) < cartTotal)) {
+      alert("Ingrese un monto válido mayor o igual al total a pagar");
+      return;
+    }
 
     createSale.mutate({
       sale: {
@@ -75,19 +80,22 @@ export default function POSPage() {
         saleId: 0, 
         productId: i.product.id,
         quantity: i.quantity,
-        price: i.product.price,
+        price: i.product.precioUnidad || i.product.price,
       }))
     }, {
       onSuccess: () => {
         setReceiptData({
           items: [...cart],
           total: cartTotal,
-          date: new Date()
+          date: new Date(),
+          paid: status === "paid" ? parseFloat(amountPaid) : undefined,
+          change: status === "paid" ? parseFloat(amountPaid) - cartTotal : undefined
         });
         setCart([]);
         setIsCheckoutOpen(false);
         setStatus("paid");
         setClientId("");
+        setAmountPaid("");
         
         // Wait for state to update, then print
         setTimeout(() => window.print(), 100);
@@ -129,7 +137,7 @@ export default function POSPage() {
                     <div className="text-xs text-muted-foreground font-mono bg-accent/50 w-max px-2 py-1 rounded-md">{product.barcode || 'S/N'}</div>
                     <div className="font-bold text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors">{product.name}</div>
                     <div className="mt-auto pt-2 flex items-center justify-between w-full">
-                      <span className="text-xl font-extrabold text-teal-600">Bs. {product.price}</span>
+                      <span className="text-xl font-extrabold text-teal-600">Q {parseFloat(product.precioUnidad || product.price).toFixed(2)}</span>
                       <span className="text-xs text-muted-foreground font-medium bg-gray-100 px-2 py-1 rounded-lg">Stock: {product.stock}</span>
                     </div>
                   </button>
@@ -158,7 +166,7 @@ export default function POSPage() {
                 <div key={item.product.id} className="bg-white p-3 rounded-2xl border border-border flex items-center justify-between shadow-sm">
                   <div className="flex-1 min-w-0 pr-2">
                     <p className="font-bold text-sm truncate">{item.product.name}</p>
-                    <p className="text-primary font-bold text-sm">Bs. {item.product.price}</p>
+                    <p className="text-primary font-bold text-sm">Q {parseFloat(item.product.precioUnidad || item.product.price).toFixed(2)}</p>
                   </div>
                   <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-xl">
                     <button onClick={() => updateQuantity(item.product.id, -1)} className="p-1 hover:bg-white rounded-lg interactive-btn"><Minus size={16} /></button>
@@ -174,9 +182,13 @@ export default function POSPage() {
           </div>
 
           <div className="p-6 bg-white border-t border-border/50">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-muted-foreground font-medium">Subtotal</span>
+              <span className="text-lg font-bold text-foreground">Q {cartTotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center mb-6 pb-4 border-b border-border/30">
               <span className="text-lg text-muted-foreground font-medium">Total a cobrar</span>
-              <span className="text-3xl font-extrabold text-foreground">Bs. {cartTotal.toFixed(2)}</span>
+              <span className="text-3xl font-extrabold text-foreground">Q {cartTotal.toFixed(2)}</span>
             </div>
             <button
               disabled={cart.length === 0}
@@ -197,8 +209,8 @@ export default function POSPage() {
             
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-semibold mb-2">Total</label>
-                <div className="text-4xl font-black text-primary">Bs. {cartTotal.toFixed(2)}</div>
+                <label className="block text-sm font-semibold mb-2">Total a Pagar</label>
+                <div className="text-4xl font-black text-primary">Q {cartTotal.toFixed(2)}</div>
               </div>
 
               <div>
@@ -229,9 +241,37 @@ export default function POSPage() {
                   >
                     <option value="">-- Seleccione un cliente --</option>
                     {clients.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} (Deuda actual: Bs. {c.debt})</option>
+                      <option key={c.id} value={c.id}>{c.name} (Deuda: Q {parseFloat(c.debt).toFixed(2)})</option>
                     ))}
                   </select>
+                </div>
+              )}
+
+              {status === "paid" && (
+                <div className="animate-in slide-in-from-top-2 space-y-3">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Monto Recibido (Q)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={amountPaid}
+                      onChange={(e) => setAmountPaid(e.target.value)}
+                      placeholder="Ej: 100.00"
+                      className="input-field text-lg font-bold text-primary"
+                    />
+                  </div>
+                  {amountPaid && parseFloat(amountPaid) > 0 && (
+                    <div className="bg-green-50 p-4 rounded-xl border border-green-200">
+                      <div className="text-sm text-muted-foreground mb-2">Total a Pagar</div>
+                      <div className="text-2xl font-bold text-foreground">Q {cartTotal.toFixed(2)}</div>
+                      <div className="border-t border-green-200 my-2"></div>
+                      <div className="text-sm text-muted-foreground mb-1">Cambio</div>
+                      <div className="text-2xl font-extrabold text-green-600">
+                        Q {(parseFloat(amountPaid) - cartTotal).toFixed(2)}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -274,8 +314,8 @@ export default function POSPage() {
               <div key={item.product.id} className="mb-2">
                 <div className="font-bold truncate">{item.product.name}</div>
                 <div className="flex justify-between text-xs">
-                  <span>{item.quantity} x {item.product.price}</span>
-                  <span>Bs. {(parseFloat(item.product.price) * item.quantity).toFixed(2)}</span>
+                  <span>{item.quantity} x Q {parseFloat(item.product.precioUnidad || item.product.price).toFixed(2)}</span>
+                  <span>Q {(parseFloat(item.product.precioUnidad || item.product.price) * item.quantity).toFixed(2)}</span>
                 </div>
               </div>
             ))}
@@ -283,8 +323,20 @@ export default function POSPage() {
           
           <div className="flex justify-between items-center text-lg font-bold mt-4">
             <span>TOTAL:</span>
-            <span>Bs. {receiptData.total.toFixed(2)}</span>
+            <span>Q {receiptData.total.toFixed(2)}</span>
           </div>
+          {receiptData.paid && receiptData.change !== undefined && (
+            <>
+              <div className="flex justify-between items-center text-sm font-bold mt-2 border-t border-b border-black py-2">
+                <span>Recibido:</span>
+                <span>Q {receiptData.paid.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center text-lg font-bold mt-2">
+                <span>CAMBIO:</span>
+                <span>Q {receiptData.change.toFixed(2)}</span>
+              </div>
+            </>
+          )}
           <p className="text-center mt-8 text-xs">¡Gracias por su preferencia!</p>
         </div>
       )}

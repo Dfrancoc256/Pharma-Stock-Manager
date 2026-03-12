@@ -26,19 +26,21 @@ export default function InventoryPage() {
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
+    // Auto-generate barcode if not provided
+    const generatedBarcode = barcode || `PRD${Date.now().toString().slice(-10)}`;
     createProduct.mutate({
       name,
       description: desc,
       price: parseFloat(price),
       cost: parseFloat(cost),
       stock: parseInt(stock, 10),
-      barcode,
+      barcode: generatedBarcode,
       casa,
       categoria
     }, {
       onSuccess: () => {
         setIsAddOpen(false);
-        setName(""); setDesc(""); setPrice(""); setCost(""); setStock("0"); setBarcode("");
+        setName(""); setDesc(""); setPrice(""); setCost(""); setStock("0"); setBarcode(""); setCasa(""); setCategoria("");
       }
     });
   };
@@ -102,8 +104,8 @@ export default function InventoryPage() {
                         {p.stock}
                       </span>
                     </td>
-                    <td className="p-4 text-muted-foreground">Bs. {p.cost}</td>
-                    <td className="p-4 font-extrabold text-primary">Bs. {p.price}</td>
+                    <td className="p-4 text-muted-foreground">Q {parseFloat(p.precioCompra || p.cost || "0").toFixed(2)}</td>
+                    <td className="p-4 font-extrabold text-primary">Q {parseFloat(p.precioUnidad || p.price || "0").toFixed(2)}</td>
                     <td className="p-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => {
                         if(confirm('¿Eliminar producto?')) deleteProduct.mutate(p.id);
@@ -132,12 +134,12 @@ export default function InventoryPage() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold mb-1">Costo (Bs.)</label>
-                  <input required type="number" step="0.01" className="input-field" value={cost} onChange={e => setCost(e.target.value)} />
+                  <label className="block text-sm font-semibold mb-1">Costo (Q)</label>
+                  <input required type="number" step="0.01" className="input-field" placeholder="Ej: 10.00" value={cost} onChange={e => setCost(e.target.value)} />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-1">Precio (Bs.)</label>
-                  <input required type="number" step="0.01" className="input-field border-primary/50 bg-primary/5" value={price} onChange={e => setPrice(e.target.value)} />
+                  <label className="block text-sm font-semibold mb-1">Precio (Q)</label>
+                  <input required type="number" step="0.01" className="input-field border-primary/50 bg-primary/5" placeholder="Ej: 20.00" value={price} onChange={e => setPrice(e.target.value)} />
                 </div>
               </div>
 
@@ -147,8 +149,8 @@ export default function InventoryPage() {
                   <input required type="number" className="input-field" value={stock} onChange={e => setStock(e.target.value)} />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-1">Código de Barras</label>
-                  <input className="input-field" value={barcode} onChange={e => setBarcode(e.target.value)} />
+                  <label className="block text-sm font-semibold mb-1">Código de Barras (opcional)</label>
+                  <input className="input-field" placeholder="Auto-generado si está vacío" value={barcode} onChange={e => setBarcode(e.target.value)} />
                 </div>
               </div>
 

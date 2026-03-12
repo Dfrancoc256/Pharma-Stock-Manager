@@ -57,7 +57,7 @@ export default function ExpensesPage() {
                 <tr key={exp.id} className="border-b border-border/30 hover:bg-black/[0.02] transition-colors">
                   <td className="p-4 text-sm text-muted-foreground">{exp.createdAt ? format(new Date(exp.createdAt), "dd/MM/yyyy HH:mm") : "-"}</td>
                   <td className="p-4 font-medium text-foreground">{exp.description}</td>
-                  <td className="p-4 font-extrabold text-destructive text-right">Bs. {exp.amount}</td>
+                  <td className="p-4 font-extrabold text-destructive text-right">Q {parseFloat(exp.amount).toFixed(2)}</td>
                 </tr>
               ))
             )}
@@ -71,8 +71,8 @@ export default function ExpensesPage() {
             <h2 className="text-2xl font-bold mb-6 text-destructive">Nuevo Gasto</h2>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold mb-1">Monto (Bs.)</label>
-                <input required type="number" step="0.01" className="input-field text-2xl font-bold text-destructive border-destructive/30 focus:border-destructive focus:ring-destructive/10" value={amount} onChange={e => setAmount(e.target.value)} />
+                <label className="block text-sm font-semibold mb-1">Monto (Q)</label>
+                <input required type="number" step="0.01" className="input-field text-2xl font-bold text-destructive border-destructive/30 focus:border-destructive focus:ring-destructive/10" placeholder="Ej: 50.00" value={amount} onChange={e => setAmount(e.target.value)} />
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1">Descripción / Motivo</label>
