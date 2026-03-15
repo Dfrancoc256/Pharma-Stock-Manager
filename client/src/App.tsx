@@ -6,16 +6,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import POSPage from "@/pages/pos";
 import InventoryPage from "@/pages/inventory";
-import ClientsPage from "@/pages/clients";
-import ExpensesPage from "@/pages/expenses";
-import CashRegisterPage from "@/pages/cash-register";
+import FiadoresPage from "@/pages/fiadores";
+import BalancesPage from "@/pages/balances";
+import DashboardPage from "@/pages/dashboard";
 import UsersPage from "@/pages/users";
 import LoginPage from "@/pages/login";
 import { useAuth } from "@/hooks/use-auth";
 import { useEffect } from "react";
 
 function Router() {
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated } = useAuth();
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
@@ -35,11 +35,11 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={LoginPage} />
-      <Route path="/" component={POSPage} />
+      <Route path="/" component={DashboardPage} />
+      <Route path="/pos" component={POSPage} />
       <Route path="/inventory" component={InventoryPage} />
-      <Route path="/clients" component={ClientsPage} />
-      <Route path="/expenses" component={ExpensesPage} />
-      <Route path="/cash-register" component={CashRegisterPage} />
+      <Route path="/fiadores" component={FiadoresPage} />
+      <Route path="/balances" component={BalancesPage} />
       <Route path="/users" component={UsersPage} />
       <Route component={NotFound} />
     </Switch>

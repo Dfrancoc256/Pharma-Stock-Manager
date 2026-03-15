@@ -1,144 +1,183 @@
 import { useState, useMemo } from "react";
-import { useProducts } from "@/hooks/use-products";
-import { useClients } from "@/hooks/use-clients";
-import { useCreateSale } from "@/hooks/use-sales";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
-import { Search, Plus, Minus, Trash2, ReceiptText, UserPlus, CreditCard, ShoppingCart, PackageSearch } from "lucide-react";
-import { type Product } from "@shared/schema";
+import { Search, Plus, Minus, Trash2, ReceiptText, UserPlus, ShoppingCart, PackageSearch } from "lucide-react";
 import { format } from "date-fns";
 
-type CartItem = {
-  product: Product;
-  quantity: number;
-};
+interface Producto {
+  ID: string; Nombre: string; Detalle: string; Casa: string; Categoria: string;
+  'Precio compra': string; 'Precio unidad': string; 'Precio blister': string;
+  'Precio caja': string; Posicion: string; Stock: string; Drogueria: string;
+  'Unidades blister': string; 'Unidades caja': string;
+}
+
+interface Fiador { Fiador_ID: string; Nombre: string; Saldo_actual: string; }
+
+type TipoPrecio = 'unidad' | 'blister' | 'caja';
+type CartItem = { producto: Producto; cantidad: number; tipoPrecio: TipoPrecio; };
+
+function getPrecio(p: Producto, tipo: TipoPrecio): number {
+  if (tipo === 'blister') return parseFloat(p['Precio blister'] || '0');
+  if (tipo === 'caja') return parseFloat(p['Precio caja'] || '0');
+  return parseFloat(p['Precio unidad'] || '0');
+}
 
 export default function POSPage() {
-  const { data: products = [], isLoading } = useProducts();
-  const { data: clients = [] } = useClients();
-  const createSale = useCreateSale();
-  
-  const [search, setSearch] = useState("");
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [status, setStatus] = useState<"paid" | "credit">("paid");
-  const [clientId, setClientId] = useState<number | "">("");
-  const [amountPaid, setAmountPaid] = useState("");
-  
-  const [receiptData, setReceiptData] = useState<{items: CartItem[], total: number, date: Date, paid?: number, change?: number} | null>(null);
+  const [tipo, setTipo] = useState<'contado' | 'fiado'>('contado');
+  const [metodoPago, setMetodoPago] = useState<'efectivo' | 'tarjeta' | 'transferencia'>('efectivo');
+  const [fiadorId, setFiadorId] = useState('');
+  const [clienteNombre, setClienteNombre] = useState('');
+  const [amountPaid, setAmountPaid] = useState('');
+  const [receiptData, setReceiptData] = useState<{ items: CartItem[]; total: number; fecha: string; paid?: number; change?: number; } | null>(null);
 
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(search.toLowerCase()) || 
-    (p.barcode && p.barcode.includes(search))
-  );
+  const { data: productos = [], isLoading } = useQuery<Producto[]>({
+    queryKey: ['/api/sheets/stock'],
+    queryFn: async () => {
+      const res = await fetch('/api/sheets/stock', { credentials: 'include' });
+      if (!res.ok) throw new Error('Error cargando productos');
+      return res.json();
+    },
+  });
 
-  const cartTotal = useMemo(() => {
-    return cart.reduce((acc, item) => acc + (parseFloat(item.product.precioUnidad || item.product.price) * item.quantity), 0);
-  }, [cart]);
+  const { data: fiadores = [] } = useQuery<Fiador[]>({
+    queryKey: ['/api/sheets/fiadores'],
+    queryFn: async () => {
+      const res = await fetch('/api/sheets/fiadores', { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
 
-  const addToCart = (product: Product) => {
+  const createVenta = useMutation({
+    mutationFn: async (body: any) => {
+      const res = await fetch('/api/sheets/ventas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Error al procesar venta');
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sheets/stock'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sheets/fiadores'] });
+      const total = cartTotal;
+      setReceiptData({
+        items: [...cart], total,
+        fecha: format(new Date(), 'dd/MM/yyyy HH:mm'),
+        paid: tipo === 'contado' ? parseFloat(amountPaid) : undefined,
+        change: tipo === 'contado' ? parseFloat(amountPaid) - total : undefined,
+      });
+      setCart([]);
+      setIsCheckoutOpen(false);
+      setTipo('contado'); setFiadorId(''); setClienteNombre(''); setAmountPaid('');
+      setTimeout(() => window.print(), 100);
+    }
+  });
+
+  const filtered = productos.filter(p => p.ID && p.Nombre && (
+    p.Nombre.toLowerCase().includes(search.toLowerCase()) ||
+    (p.Detalle || '').toLowerCase().includes(search.toLowerCase()) ||
+    (p.Casa || '').toLowerCase().includes(search.toLowerCase()) ||
+    (p.Categoria || '').toLowerCase().includes(search.toLowerCase())
+  ));
+
+  const cartTotal = useMemo(() => cart.reduce((acc, item) => acc + getPrecio(item.producto, item.tipoPrecio) * item.cantidad, 0), [cart]);
+
+  const addToCart = (producto: Producto) => {
     setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
-      if (existing) {
-        return prev.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
-      }
-      return [...prev, { product, quantity: 1 }];
+      const existing = prev.find(i => i.producto.ID === producto.ID && i.tipoPrecio === 'unidad');
+      if (existing) return prev.map(i => i.producto.ID === producto.ID && i.tipoPrecio === 'unidad' ? { ...i, cantidad: i.cantidad + 1 } : i);
+      return [...prev, { producto, cantidad: 1, tipoPrecio: 'unidad' }];
     });
   };
 
-  const updateQuantity = (id: number, delta: number) => {
-    setCart(prev => prev.map(item => {
-      if (item.product.id === id) {
-        const newQ = item.quantity + delta;
-        return newQ > 0 ? { ...item, quantity: newQ } : item;
+  const updateQty = (id: string, tipoPrecio: TipoPrecio, delta: number) => {
+    setCart(prev => prev.map(i => {
+      if (i.producto.ID === id && i.tipoPrecio === tipoPrecio) {
+        const newQ = i.cantidad + delta;
+        return newQ > 0 ? { ...i, cantidad: newQ } : i;
       }
-      return item;
+      return i;
     }));
   };
 
-  const removeFromCart = (id: number) => {
-    setCart(prev => prev.filter(item => item.product.id !== id));
+  const updateTipoPrecio = (id: string, oldTipo: TipoPrecio, newTipo: TipoPrecio) => {
+    setCart(prev => prev.map(i => (i.producto.ID === id && i.tipoPrecio === oldTipo) ? { ...i, tipoPrecio: newTipo } : i));
+  };
+
+  const removeFromCart = (id: string, tipoPrecio: TipoPrecio) => {
+    setCart(prev => prev.filter(i => !(i.producto.ID === id && i.tipoPrecio === tipoPrecio)));
   };
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
-    if (status === "credit" && !clientId) {
-      alert("Seleccione un cliente para la venta al fiado");
-      return;
-    }
-    if (status === "paid" && (!amountPaid || parseFloat(amountPaid) < cartTotal)) {
-      alert("Ingrese un monto válido mayor o igual al total a pagar");
-      return;
-    }
+    if (tipo === 'fiado' && !fiadorId) { alert('Selecciona un fiador'); return; }
+    if (tipo === 'contado' && (!amountPaid || parseFloat(amountPaid) < cartTotal)) { alert('Ingresa un monto válido'); return; }
 
-    createSale.mutate({
-      sale: {
-        total: cartTotal.toString(),
-        status,
-        clientId: status === "credit" ? Number(clientId) : null,
-      },
+    const fiadorSeleccionado = fiadores.find(f => f.Fiador_ID === fiadorId);
+    createVenta.mutate({
+      cliente: tipo === 'fiado' ? (fiadorSeleccionado?.Nombre || clienteNombre) : (clienteNombre || 'Contado'),
+      tipo,
+      fiadorId: tipo === 'fiado' ? fiadorId : '',
+      metodoPago,
+      total: cartTotal.toFixed(2),
       items: cart.map(i => ({
-        saleId: 0, 
-        productId: i.product.id,
-        quantity: i.quantity,
-        price: i.product.precioUnidad || i.product.price,
+        productoId: i.producto.ID,
+        nombre: i.producto.Nombre,
+        tipoPrecio: i.tipoPrecio,
+        cantidad: i.cantidad,
+        precioUnitario: getPrecio(i.producto, i.tipoPrecio).toFixed(2),
+        costoUnitario: i.producto['Precio compra'] || '0',
+        subtotal: (getPrecio(i.producto, i.tipoPrecio) * i.cantidad).toFixed(2),
+        utilidad: (getPrecio(i.producto, i.tipoPrecio) - parseFloat(i.producto['Precio compra'] || '0')).toFixed(2),
       }))
-    }, {
-      onSuccess: () => {
-        setReceiptData({
-          items: [...cart],
-          total: cartTotal,
-          date: new Date(),
-          paid: status === "paid" ? parseFloat(amountPaid) : undefined,
-          change: status === "paid" ? parseFloat(amountPaid) - cartTotal : undefined
-        });
-        setCart([]);
-        setIsCheckoutOpen(false);
-        setStatus("paid");
-        setClientId("");
-        setAmountPaid("");
-        
-        // Wait for state to update, then print
-        setTimeout(() => window.print(), 100);
-      }
     });
   };
 
   return (
     <Layout>
       <div className="flex gap-6 h-[calc(100vh-4rem)]">
-        
-        {/* Left Side: Products */}
-        <div className="flex-1 flex flex-col glass-card rounded-3xl overflow-hidden border-border/40">
-          <div className="p-6 border-b border-border/50 bg-white/50">
+        {/* Products Panel */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="mb-4">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
-              <input
-                autoFocus
-                type="text"
-                placeholder="Buscar por nombre o código de barras..."
-                className="input-field pl-12 text-lg shadow-sm"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+              <input type="text" placeholder="Buscar por nombre, detalle, casa, categoría..." className="input-field pl-10" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
           </div>
-          
-          <div className="flex-1 overflow-y-auto p-6">
+
+          <div className="flex-1 overflow-y-auto">
             {isLoading ? (
-              <div className="flex justify-center items-center h-full text-muted-foreground">Cargando productos...</div>
+              <div className="flex items-center justify-center h-full text-muted-foreground">Cargando desde Google Sheets...</div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
+                <PackageSearch size={64} className="opacity-20" />
+                <p>No se encontraron productos</p>
+              </div>
             ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredProducts.map(product => (
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 pb-4">
+                {filtered.map(p => (
                   <button
-                    key={product.id}
-                    onClick={() => addToCart(product)}
-                    className="interactive-btn text-left bg-white p-5 rounded-2xl border border-border/60 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 flex flex-col gap-2 group"
+                    key={p.ID}
+                    onClick={() => addToCart(p)}
+                    disabled={(parseInt(p.Stock) || 0) === 0}
+                    className="interactive-btn text-left bg-white p-4 rounded-2xl border border-border/60 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 flex flex-col gap-1 group disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    <div className="text-xs text-muted-foreground font-mono bg-accent/50 w-max px-2 py-1 rounded-md">{product.barcode || 'S/N'}</div>
-                    <div className="font-bold text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors">{product.name}</div>
+                    <div className="text-xs text-muted-foreground font-mono bg-accent/50 w-max px-2 py-0.5 rounded-md">{p.ID}</div>
+                    <div className="font-bold text-foreground line-clamp-2 leading-tight text-sm group-hover:text-primary">{p.Nombre}</div>
+                    {p.Detalle && <div className="text-xs text-muted-foreground line-clamp-1">{p.Detalle}</div>}
+                    {p.Casa && <div className="text-xs text-muted-foreground">{p.Casa} · {p.Categoria}</div>}
                     <div className="mt-auto pt-2 flex items-center justify-between w-full">
-                      <span className="text-xl font-extrabold text-teal-600">Q {parseFloat(product.precioUnidad || product.price).toFixed(2)}</span>
-                      <span className="text-xs text-muted-foreground font-medium bg-gray-100 px-2 py-1 rounded-lg">Stock: {product.stock}</span>
+                      <span className="text-lg font-extrabold text-primary">Q {parseFloat(p['Precio unidad'] || '0').toFixed(2)}</span>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-lg ${(parseInt(p.Stock) || 0) < 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                        {p.Stock || 0}
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -147,47 +186,59 @@ export default function POSPage() {
           </div>
         </div>
 
-        {/* Right Side: Cart */}
-        <div className="w-[400px] flex flex-col glass-card rounded-3xl overflow-hidden border-border/40 shrink-0">
-          <div className="p-6 bg-gradient-to-r from-primary to-teal-500 text-white">
-            <h3 className="text-2xl font-bold flex items-center gap-2">
-              <ShoppingCart /> Venta Actual
-            </h3>
+        {/* Cart Panel */}
+        <div className="w-80 glass-card rounded-3xl flex flex-col overflow-hidden">
+          <div className="p-5 border-b border-border/50">
+            <h2 className="text-lg font-bold flex items-center gap-2"><ShoppingCart size={20} className="text-primary" />Carrito
+              {cart.length > 0 && <span className="ml-auto bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">{cart.length}</span>}
+            </h2>
           </div>
-          
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white/40">
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
             {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3 opacity-50">
-                <PackageSearch size={48} />
-                <p>Carrito vacío</p>
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+                <ShoppingCart size={40} className="opacity-20" />
+                <p className="text-sm">Selecciona productos</p>
               </div>
             ) : (
               cart.map(item => (
-                <div key={item.product.id} className="bg-white p-3 rounded-2xl border border-border flex items-center justify-between shadow-sm">
-                  <div className="flex-1 min-w-0 pr-2">
-                    <p className="font-bold text-sm truncate">{item.product.name}</p>
-                    <p className="text-primary font-bold text-sm">Q {parseFloat(item.product.precioUnidad || item.product.price).toFixed(2)}</p>
+                <div key={`${item.producto.ID}-${item.tipoPrecio}`} className="bg-white p-3 rounded-2xl border border-border shadow-sm">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-xs truncate">{item.producto.Nombre}</p>
+                      <p className="text-primary font-bold text-sm">Q {getPrecio(item.producto, item.tipoPrecio).toFixed(2)}</p>
+                    </div>
+                    <button onClick={() => removeFromCart(item.producto.ID, item.tipoPrecio)} className="p-1 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
                   </div>
-                  <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-xl">
-                    <button onClick={() => updateQuantity(item.product.id, -1)} className="p-1 hover:bg-white rounded-lg interactive-btn"><Minus size={16} /></button>
-                    <span className="w-6 text-center font-bold text-sm">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.product.id, 1)} className="p-1 hover:bg-white rounded-lg interactive-btn"><Plus size={16} /></button>
+                  {/* Tipo precio selector */}
+                  <div className="flex gap-1 mb-2">
+                    {(['unidad', 'blister', 'caja'] as TipoPrecio[]).map(t => {
+                      const pr = getPrecio(item.producto, t);
+                      if (t !== 'unidad' && pr === 0) return null;
+                      return (
+                        <button key={t} onClick={() => updateTipoPrecio(item.producto.ID, item.tipoPrecio, t)}
+                          className={`text-xs px-2 py-0.5 rounded-lg font-medium interactive-btn border ${item.tipoPrecio === t ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+                          {t}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <button onClick={() => removeFromCart(item.product.id)} className="ml-2 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl interactive-btn">
-                    <Trash2 size={18} />
-                  </button>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl">
+                      <button onClick={() => updateQty(item.producto.ID, item.tipoPrecio, -1)} className="p-1 hover:bg-white rounded-lg interactive-btn"><Minus size={14} /></button>
+                      <span className="w-6 text-center font-bold text-sm">{item.cantidad}</span>
+                      <button onClick={() => updateQty(item.producto.ID, item.tipoPrecio, 1)} className="p-1 hover:bg-white rounded-lg interactive-btn"><Plus size={14} /></button>
+                    </div>
+                    <span className="font-extrabold text-sm text-foreground">Q {(getPrecio(item.producto, item.tipoPrecio) * item.cantidad).toFixed(2)}</span>
+                  </div>
                 </div>
               ))
             )}
           </div>
 
-          <div className="p-6 bg-white border-t border-border/50">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-muted-foreground font-medium">Subtotal</span>
-              <span className="text-lg font-bold text-foreground">Q {cartTotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between items-center mb-6 pb-4 border-b border-border/30">
-              <span className="text-lg text-muted-foreground font-medium">Total a cobrar</span>
+          <div className="p-5 bg-white border-t border-border/50">
+            <div className="flex justify-between items-center mb-5">
+              <span className="text-lg text-muted-foreground font-medium">Total</span>
               <span className="text-3xl font-extrabold text-foreground">Q {cartTotal.toFixed(2)}</span>
             </div>
             <button
@@ -195,99 +246,86 @@ export default function POSPage() {
               onClick={() => setIsCheckoutOpen(true)}
               className="w-full interactive-btn py-4 rounded-2xl bg-gradient-to-r from-primary to-teal-500 text-white font-bold text-lg shadow-lg shadow-primary/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <CreditCard /> Cobrar
+              <ReceiptText size={20} /> Cobrar
             </button>
           </div>
         </div>
       </div>
 
-      {/* Checkout Dialog */}
+      {/* Checkout Modal */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="glass-card rounded-3xl w-full max-w-md p-8 animate-in zoom-in-95 duration-200">
+          <div className="glass-card rounded-3xl w-full max-w-md p-8 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-6">Finalizar Venta</h2>
-            
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold mb-2">Total a Pagar</label>
+                <label className="block text-sm font-semibold mb-1">Total</label>
                 <div className="text-4xl font-black text-primary">Q {cartTotal.toFixed(2)}</div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Método de Pago</label>
+                <label className="block text-sm font-semibold mb-2">Tipo de Venta</label>
                 <div className="flex gap-2">
-                  <button 
-                    onClick={() => setStatus("paid")}
-                    className={`flex-1 py-3 rounded-xl font-bold interactive-btn border-2 ${status === 'paid' ? 'bg-primary/10 border-primary text-primary' : 'border-border text-muted-foreground'}`}
-                  >
-                    Pagado
-                  </button>
-                  <button 
-                    onClick={() => setStatus("credit")}
-                    className={`flex-1 py-3 rounded-xl font-bold interactive-btn border-2 ${status === 'credit' ? 'bg-orange-500/10 border-orange-500 text-orange-600' : 'border-border text-muted-foreground'}`}
-                  >
-                    Fiado
-                  </button>
+                  {(['contado', 'fiado'] as const).map(t => (
+                    <button key={t} type="button" onClick={() => setTipo(t)}
+                      className={`flex-1 py-2.5 rounded-xl font-bold border-2 interactive-btn ${tipo === t ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {status === "credit" && (
-                <div className="animate-in slide-in-from-top-2">
-                  <label className="block text-sm font-semibold mb-2 flex items-center gap-2"><UserPlus size={16}/> Seleccionar Cliente</label>
-                  <select 
-                    className="input-field"
-                    value={clientId}
-                    onChange={(e) => setClientId(Number(e.target.value))}
-                  >
-                    <option value="">-- Seleccione un cliente --</option>
-                    {clients.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} (Deuda: Q {parseFloat(c.debt).toFixed(2)})</option>
+              {tipo === 'contado' && (
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Método de Pago</label>
+                  <div className="flex gap-2">
+                    {(['efectivo', 'tarjeta', 'transferencia'] as const).map(m => (
+                      <button key={m} type="button" onClick={() => setMetodoPago(m)}
+                        className={`flex-1 py-2 rounded-xl font-bold border-2 interactive-btn text-sm ${metodoPago === m ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+                        {m}
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </div>
               )}
 
-              {status === "paid" && (
-                <div className="animate-in slide-in-from-top-2 space-y-3">
+              {tipo === 'contado' && (
+                <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Monto Recibido (Q)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={amountPaid}
-                      onChange={(e) => setAmountPaid(e.target.value)}
-                      placeholder="Ej: 100.00"
-                      className="input-field text-lg font-bold text-primary"
-                    />
+                    <label className="block text-sm font-semibold mb-1">Cliente (opcional)</label>
+                    <input className="input-field" placeholder="Nombre del cliente" value={clienteNombre} onChange={e => setClienteNombre(e.target.value)} />
                   </div>
-                  {amountPaid && parseFloat(amountPaid) > 0 && (
+                  <div>
+                    <label className="block text-sm font-semibold mb-1">Monto Recibido (Q)</label>
+                    <input type="number" step="0.01" min={cartTotal} className="input-field text-xl font-bold text-primary" placeholder="0.00" value={amountPaid} onChange={e => setAmountPaid(e.target.value)} />
+                  </div>
+                  {amountPaid && parseFloat(amountPaid) >= cartTotal && (
                     <div className="bg-green-50 p-4 rounded-xl border border-green-200">
-                      <div className="text-sm text-muted-foreground mb-2">Total a Pagar</div>
-                      <div className="text-2xl font-bold text-foreground">Q {cartTotal.toFixed(2)}</div>
-                      <div className="border-t border-green-200 my-2"></div>
-                      <div className="text-sm text-muted-foreground mb-1">Cambio</div>
-                      <div className="text-2xl font-extrabold text-green-600">
-                        Q {(parseFloat(amountPaid) - cartTotal).toFixed(2)}
-                      </div>
+                      <div className="text-sm text-muted-foreground mb-1">Cambio a devolver</div>
+                      <div className="text-3xl font-extrabold text-green-600">Q {(parseFloat(amountPaid) - cartTotal).toFixed(2)}</div>
                     </div>
                   )}
                 </div>
               )}
 
+              {tipo === 'fiado' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2 flex items-center gap-1"><UserPlus size={16} /> Seleccionar Fiador</label>
+                    <select className="input-field" value={fiadorId} onChange={e => setFiadorId(e.target.value)}>
+                      <option value="">-- Seleccionar fiador --</option>
+                      {fiadores.filter(f => f.Fiador_ID).map(f => (
+                        <option key={f.Fiador_ID} value={f.Fiador_ID}>{f.Nombre} (Saldo: Q {parseFloat(f.Saldo_actual || '0').toFixed(2)})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-3 pt-4">
-                <button 
-                  onClick={() => setIsCheckoutOpen(false)}
-                  className="flex-1 py-3 rounded-xl font-bold bg-muted text-muted-foreground hover:bg-muted/80 interactive-btn"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={handleCheckout}
-                  disabled={createSale.isPending}
-                  className="flex-1 py-3 rounded-xl font-bold bg-primary text-white hover:bg-primary/90 interactive-btn shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
-                >
-                  {createSale.isPending ? "Procesando..." : <><ReceiptText size={20}/> Confirmar</>}
+                <button onClick={() => setIsCheckoutOpen(false)} className="flex-1 py-3 rounded-xl font-bold bg-muted text-muted-foreground interactive-btn">Cancelar</button>
+                <button onClick={handleCheckout} disabled={createVenta.isPending} className="flex-1 py-3 rounded-xl font-bold bg-gradient-to-r from-primary to-teal-500 text-white interactive-btn shadow-lg shadow-primary/25">
+                  {createVenta.isPending ? 'Procesando...' : 'Confirmar Venta'}
                 </button>
               </div>
             </div>
@@ -295,49 +333,39 @@ export default function POSPage() {
         </div>
       )}
 
-      {/* Print Receipt Area (Hidden in screen, block in print) */}
+      {/* Receipt (print only) */}
       {receiptData && (
-        <div className="print-receipt text-black hidden font-mono text-sm leading-tight p-4 w-[300px]">
+        <div className="hidden print:block fixed inset-0 bg-white p-6 text-black text-sm font-mono" style={{ fontFamily: 'monospace' }}>
           <div className="text-center mb-4">
-            <h1 className="font-bold text-xl mb-1">FARMACIA WEB</h1>
-            <p>Comprobante de Venta</p>
-            <p>Sin Valor Fiscal</p>
-            <p className="mt-2 text-xs">{format(receiptData.date, "dd/MM/yyyy HH:mm")}</p>
+            <h1 className="text-xl font-black">FARMACIA WEB</h1>
+            <p className="text-xs">{receiptData.fecha}</p>
+            <div className="border-t border-b border-black my-2 py-1 text-center text-xs">— COMPROBANTE DE VENTA —</div>
           </div>
-          
-          <div className="border-t border-b border-black py-2 my-2 border-dashed">
-            <div className="flex justify-between font-bold mb-2 text-xs">
-              <span className="w-1/2">Cant x Prod</span>
-              <span className="text-right">Total</span>
+          <div className="mb-4">
+            <div className="flex justify-between font-bold mb-1 text-xs border-b border-black pb-1">
+              <span className="w-1/2">Producto</span><span>Cant</span><span className="text-right">Total</span>
             </div>
-            {receiptData.items.map(item => (
-              <div key={item.product.id} className="mb-2">
-                <div className="font-bold truncate">{item.product.name}</div>
+            {receiptData.items.map((item, i) => (
+              <div key={i} className="mb-1.5">
+                <div className="font-bold">{item.producto.Nombre}</div>
                 <div className="flex justify-between text-xs">
-                  <span>{item.quantity} x Q {parseFloat(item.product.precioUnidad || item.product.price).toFixed(2)}</span>
-                  <span>Q {(parseFloat(item.product.precioUnidad || item.product.price) * item.quantity).toFixed(2)}</span>
+                  <span>{item.cantidad} x Q {getPrecio(item.producto, item.tipoPrecio).toFixed(2)} ({item.tipoPrecio})</span>
+                  <span>Q {(getPrecio(item.producto, item.tipoPrecio) * item.cantidad).toFixed(2)}</span>
                 </div>
               </div>
             ))}
           </div>
-          
-          <div className="flex justify-between items-center text-lg font-bold mt-4">
-            <span>TOTAL:</span>
-            <span>Q {receiptData.total.toFixed(2)}</span>
+          <div className="border-t border-black pt-2">
+            <div className="flex justify-between font-black text-base"><span>TOTAL:</span><span>Q {receiptData.total.toFixed(2)}</span></div>
+            {receiptData.paid !== undefined && (
+              <>
+                <div className="flex justify-between text-sm font-bold mt-1"><span>Recibido:</span><span>Q {receiptData.paid.toFixed(2)}</span></div>
+                <div className="flex justify-between text-base font-black mt-1 border-t border-black pt-1"><span>CAMBIO:</span><span>Q {(receiptData.change ?? 0).toFixed(2)}</span></div>
+              </>
+            )}
           </div>
-          {receiptData.paid && receiptData.change !== undefined && (
-            <>
-              <div className="flex justify-between items-center text-sm font-bold mt-2 border-t border-b border-black py-2">
-                <span>Recibido:</span>
-                <span>Q {receiptData.paid.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center text-lg font-bold mt-2">
-                <span>CAMBIO:</span>
-                <span>Q {receiptData.change.toFixed(2)}</span>
-              </div>
-            </>
-          )}
-          <p className="text-center mt-8 text-xs">¡Gracias por su preferencia!</p>
+          <p className="text-center mt-6 text-xs">¡Gracias por su preferencia!</p>
+          <p className="text-center text-xs">Sin NIT — Consumidor Final</p>
         </div>
       )}
     </Layout>

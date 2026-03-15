@@ -3,18 +3,19 @@ import {
   ShoppingCart, 
   PackageSearch, 
   Users, 
-  WalletCards, 
-  LineChart, 
+  TrendingUp,
+  LayoutDashboard,
   ShieldCheck,
-  Stethoscope
+  Stethoscope,
+  LogOut
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Punto de Venta", icon: ShoppingCart },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/pos", label: "Punto de Venta", icon: ShoppingCart },
   { href: "/inventory", label: "Inventario", icon: PackageSearch },
-  { href: "/clients", label: "Clientes & Fiados", icon: Users },
-  { href: "/expenses", label: "Gastos", icon: WalletCards },
-  { href: "/register", label: "Control de Caja", icon: LineChart },
+  { href: "/fiadores", label: "Fiadores", icon: Users },
+  { href: "/balances", label: "Balances", icon: TrendingUp },
   { href: "/users", label: "Usuarios", icon: ShieldCheck },
 ];
 
@@ -25,30 +26,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen bg-background overflow-hidden selection:bg-primary/20">
       
       {/* Sidebar */}
-      <aside className="w-72 glass-panel flex flex-col z-20 hidden md:flex relative">
-        <div className="p-8 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-emerald-400 flex items-center justify-center text-white shadow-lg shadow-primary/30">
-            <Stethoscope size={28} strokeWidth={2.5} />
+      <aside className="w-64 glass-panel flex flex-col z-20 hidden md:flex relative">
+        <div className="p-6 flex items-center gap-3 border-b border-border/30">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-emerald-400 flex items-center justify-center text-white shadow-lg shadow-primary/30">
+            <Stethoscope size={22} strokeWidth={2.5} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Farmacia Web</h1>
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Gestión Médica</p>
+            <h1 className="text-lg font-bold text-foreground">Farmacia Web</h1>
+            <p className="text-xs text-muted-foreground font-medium">Google Sheets DB</p>
           </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-2 overflow-y-auto pb-8">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const isActive = location === item.href;
             return (
               <Link key={item.href} href={item.href} className="block">
                 <div
-                  className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl interactive-btn cursor-pointer ${
+                  className={`flex items-center gap-3 px-4 py-3 rounded-2xl interactive-btn cursor-pointer ${
                     isActive 
                       ? "bg-primary/10 text-primary font-semibold shadow-inner" 
                       : "text-muted-foreground hover:bg-black/5 hover:text-foreground font-medium"
                   }`}
                 >
-                  <item.icon size={22} className={isActive ? "text-primary" : "opacity-70"} />
+                  <item.icon size={20} className={isActive ? "text-primary" : "opacity-70"} />
                   {item.label}
                 </div>
               </Link>
@@ -56,11 +57,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         
-        <div className="p-6 mt-auto">
-          <div className="bg-gradient-to-br from-secondary to-accent p-5 rounded-3xl border border-white">
-            <p className="text-sm font-semibold text-primary mb-1">Caja Abierta</p>
-            <p className="text-xs text-muted-foreground">Turno activo</p>
-          </div>
+        <div className="p-4 border-t border-border/30">
+          <a href="/api/logout" className="flex items-center gap-3 px-4 py-3 rounded-2xl text-muted-foreground hover:bg-red-50 hover:text-red-600 font-medium interactive-btn cursor-pointer w-full">
+            <LogOut size={20} className="opacity-70" />
+            Cerrar Sesión
+          </a>
         </div>
       </aside>
 

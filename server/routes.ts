@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import { registerSheetsRoutes } from "./sheetsRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -13,6 +14,9 @@ export async function registerRoutes(
   // Replit Auth Setup
   await setupAuth(app);
   registerAuthRoutes(app);
+
+  // Google Sheets Routes
+  registerSheetsRoutes(app);
 
   // Users
   app.get(api.users.list.path, async (req, res) => {
