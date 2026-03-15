@@ -256,31 +256,72 @@ export function registerSheetsRoutes(app: Express) {
   // ==================== DASHBOARD ====================
   app.get('/api/sheets/dashboard', async (req, res) => {
     try {
-      const [stockRows, movimientosRows, detalleVentaRows] = await Promise.all([
+      const [stockRows, movimientosRows, detalleVentaRows, ventasRows] = await Promise.all([
         leerHoja('Stock'),
         leerHoja('Movimientos'),
         leerHoja('Detalle_Venta'),
+        leerHoja('Ventas'),
       ]);
 
       // Stock stats - find stock column by header
       const stockHeaders = stockRows[0] || [];
       const stockColIdx = stockHeaders.findIndex((h: string) => h.trim().toLowerCase() === 'stock');
-      const productos = stockRows.slice(1).filter(r => r[0] && r[0] !== '');
-      const totalProductos = productos.length;
+      const stockData = stockRows.slice(1).filter(r => r[0] && r[0] !== '');
+      const totalProductos = stockData.length;
       const existenciaTotal = stockColIdx >= 0
-        ? productos.reduce((acc, r) => acc + (parseInt(r[stockColIdx]) || 0), 0)
+        ? stockData.reduce((acc, r) => acc + (parseInt(r[stockColIdx]) || 0), 0)
         : 0;
       const bajosStock = stockColIdx >= 0
-        ? productos.filter(r => (parseInt(r[stockColIdx]) || 0) < 5).length
+        ? stockData.filter(r => (parseInt(r[stockColIdx]) || 0) < 5).length
         : 0;
 
-      // Movimientos stats
+      // Movimientos stats totales
       const movs = movimientosRows.slice(1).filter(r => r[0]);
       const ingresos = movs.filter(r => r[2] === 'ingreso').reduce((acc, r) => acc + parseFloat(r[4] || '0'), 0);
       const egresos = movs.filter(r => r[2] === 'egreso').reduce((acc, r) => acc + parseFloat(r[4] || '0'), 0);
       const cajaNeta = ingresos - egresos;
 
-      // Top productos
+      // Movimientos por día — últimos 14 días
+      const hoy = new Date();
+      const diasMap: Record<string, { fecha: string; ingresos: number; egresos: number }> = {};
+      for (let d = 13; d >= 0; d--) {
+        const fecha = new Date(hoy);
+        fecha.setDate(hoy.getDate() - d);
+        const key = `${String(fecha.getDate()).padStart(2, '0')}/${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+        const label = `${String(fecha.getDate()).padStart(2, '0')}/${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+        diasMap[key] = { fecha: label, ingresos: 0, egresos: 0 };
+      }
+      for (const m of movs) {
+        if (!m[1]) continue;
+        const [datePart] = m[1].split(' ');
+        const [d, mo] = datePart.split('/');
+        const key = `${d.padStart(2, '0')}/${mo.padStart(2, '0')}`;
+        if (diasMap[key]) {
+          if (m[2] === 'ingreso') diasMap[key].ingresos += parseFloat(m[4] || '0');
+          else if (m[2] === 'egreso') diasMap[key].egresos += parseFloat(m[4] || '0');
+        }
+      }
+      const ventasPorDia = Object.values(diasMap);
+
+      // Ventas por hora del día (para ver horario pico)
+      const ventasRows2 = ventasRows.slice(1).filter(r => r[0]);
+      const horaCount: Record<number, number> = {};
+      for (const v of ventasRows2) {
+        if (!v[1]) continue;
+        const timePart = v[1].split(' ')[1];
+        if (!timePart) continue;
+        const hora = parseInt(timePart.split(':')[0]);
+        if (!isNaN(hora)) horaCount[hora] = (horaCount[hora] || 0) + 1;
+      }
+      const ventasPorHora = Array.from({ length: 24 }, (_, h) => ({
+        hora: `${String(h).padStart(2, '0')}:00`,
+        ventas: horaCount[h] || 0,
+      })).filter(h => h.ventas > 0 || (h.hora >= '07:00' && h.hora <= '21:00'));
+
+      // Total ventas
+      const totalVentas = ventasRows2.length;
+
+      // Top productos (top 8)
       const productCount: Record<string, { nombre: string; total: number; cantidad: number }> = {};
       const detalles = detalleVentaRows.slice(1).filter(r => r[0]);
       for (const d of detalles) {
@@ -294,15 +335,32 @@ export function registerSheetsRoutes(app: Express) {
       }
       const topProductos = Object.entries(productCount)
         .sort((a, b) => b[1].cantidad - a[1].cantidad)
-        .slice(0, 5)
+        .slice(0, 8)
         .map(([id, data]) => ({ id, ...data }));
 
+      // Categorias de stock
+      const categoriaIdx = stockHeaders.findIndex((h: string) => h.trim().toLowerCase() === 'categoria');
+      const catMap: Record<string, number> = {};
+      if (categoriaIdx >= 0) {
+        for (const r of stockData) {
+          const cat = r[categoriaIdx] || 'Sin categoría';
+          catMap[cat] = (catMap[cat] || 0) + 1;
+        }
+      }
+      const topCategorias = Object.entries(catMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([nombre, cantidad]) => ({ nombre, cantidad }));
+
       res.json({
-        totalProductos, existenciaTotal, bajosStock,
+        totalProductos, existenciaTotal, bajosStock, totalVentas,
         ingresos: ingresos.toFixed(2),
         egresos: egresos.toFixed(2),
         cajaNeta: cajaNeta.toFixed(2),
-        topProductos
+        topProductos,
+        ventasPorDia,
+        ventasPorHora,
+        topCategorias,
       });
     } catch (err: any) {
       console.error('Dashboard error:', err);
