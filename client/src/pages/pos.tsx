@@ -1,8 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
-import { Search, Plus, Minus, Trash2, ReceiptText, UserPlus, ShoppingCart, PackageSearch } from "lucide-react";
+import {
+  Search, Plus, Minus, Trash2, ReceiptText, UserPlus,
+  ShoppingCart, PackageSearch, Sparkles, X, Loader2, Info
+} from "lucide-react";
 import { format } from "date-fns";
+import { apiRequest } from "@/lib/queryClient";
 
 interface Producto {
   ID: string; Nombre: string; Detalle: string; Casa: string; Categoria: string;
@@ -15,6 +19,11 @@ interface Fiador { Fiador_ID: string; Nombre: string; Saldo_actual: string; }
 
 type TipoPrecio = 'unidad' | 'blister' | 'caja';
 type CartItem = { producto: Producto; cantidad: number; tipoPrecio: TipoPrecio; };
+
+type AIResultado = {
+  id: string; nombre: string; detalle?: string;
+  categoria?: string; precioUnidad?: number; stock?: number; relevancia?: string;
+};
 
 function getPrecio(p: Producto, tipo: TipoPrecio): number {
   if (tipo === 'blister') return parseFloat(p['Precio blister'] || '0');
@@ -33,6 +42,15 @@ export default function POSPage() {
   const [clienteNombre, setClienteNombre] = useState('');
   const [amountPaid, setAmountPaid] = useState('');
   const [receiptData, setReceiptData] = useState<{ items: CartItem[]; total: number; fecha: string; paid?: number; change?: number; } | null>(null);
+
+  // AI Panel state
+  const [showAI, setShowAI] = useState(false);
+  const [aiQuery, setAIQuery] = useState('');
+  const [aiLoading, setAILoading] = useState(false);
+  const [aiResultados, setAIResultados] = useState<AIResultado[]>([]);
+  const [aiSugerencia, setAISugerencia] = useState('');
+  const [aiError, setAIError] = useState('');
+  const aiInputRef = useRef<HTMLInputElement>(null);
 
   const { data: productos = [], isLoading } = useQuery<Producto[]>({
     queryKey: ['/api/sheets/stock'],
@@ -63,7 +81,7 @@ export default function POSPage() {
       if (!res.ok) throw new Error('Error al procesar venta');
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sheets/stock'] });
       queryClient.invalidateQueries({ queryKey: ['/api/sheets/fiadores'] });
       const total = cartTotal;
@@ -140,17 +158,156 @@ export default function POSPage() {
     });
   };
 
+  // IA: buscar productos desde el catálogo real de Google Sheets
+  async function handleAISearch(e: React.FormEvent) {
+    e.preventDefault();
+    if (!aiQuery.trim()) return;
+    setAILoading(true);
+    setAIError('');
+    setAIResultados([]);
+    setAISugerencia('');
+    try {
+      const res = await apiRequest("POST", "/api/ai/buscar", { query: aiQuery.trim() });
+      const data = await res.json();
+      setAIResultados(data.resultados || []);
+      setAISugerencia(data.sugerencia || '');
+    } catch {
+      setAIError('No se pudo conectar con la IA. Intenta de nuevo.');
+    } finally {
+      setAILoading(false);
+    }
+  }
+
+  // Al agregar desde IA: busca el producto real en el catálogo de Stock
+  function addFromAI(aiProd: AIResultado) {
+    const realProd = productos.find(p => p.ID === aiProd.id);
+    if (!realProd) return;
+    if ((parseInt(realProd.Stock) || 0) === 0) return;
+    addToCart(realProd);
+  }
+
+  function openAI() {
+    setShowAI(true);
+    setAIQuery('');
+    setAIResultados([]);
+    setAISugerencia('');
+    setAIError('');
+    setTimeout(() => aiInputRef.current?.focus(), 100);
+  }
+
   return (
     <Layout>
       <div className="flex gap-6 h-[calc(100vh-4rem)]">
         {/* Products Panel */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="mb-4">
-            <div className="relative">
+          <div className="mb-4 flex gap-2">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-              <input type="text" placeholder="Buscar por nombre, detalle, casa, categoría..." className="input-field pl-10" value={search} onChange={e => setSearch(e.target.value)} />
+              <input
+                type="text"
+                placeholder="Buscar por nombre, detalle, casa, categoría..."
+                className="input-field pl-10"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                data-testid="input-search-pos"
+              />
             </div>
+            <button
+              onClick={openAI}
+              className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-violet-500 to-primary text-white font-semibold text-sm shadow-lg shadow-violet-500/20 interactive-btn hover:shadow-violet-500/30 hover:shadow-xl transition-shadow"
+              data-testid="button-buscar-ia-pos"
+            >
+              <Sparkles size={16} />
+              Buscar con IA
+            </button>
           </div>
+
+          {/* AI Panel (slide-in style) */}
+          {showAI && (
+            <div className="mb-4 bg-gradient-to-br from-violet-50 to-primary/5 border border-violet-200 rounded-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={16} className="text-violet-600" />
+                  <span className="font-semibold text-sm text-violet-700">Búsqueda IA — describe el síntoma o medicamento</span>
+                </div>
+                <button
+                  onClick={() => { setShowAI(false); setAIResultados([]); setAISugerencia(''); setAIError(''); }}
+                  className="p-1 text-muted-foreground hover:text-foreground rounded-lg"
+                  data-testid="button-cerrar-ia"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={handleAISearch} className="flex gap-2 px-4 pb-3">
+                <input
+                  ref={aiInputRef}
+                  value={aiQuery}
+                  onChange={e => setAIQuery(e.target.value)}
+                  placeholder='ej: "gripe y fiebre", "dolor de estómago", "paracetamol"...'
+                  className="flex-1 h-10 rounded-xl border border-violet-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
+                  data-testid="input-ai-query"
+                />
+                <button
+                  type="submit"
+                  disabled={aiLoading || !aiQuery.trim()}
+                  className="flex items-center gap-1.5 px-4 h-10 rounded-xl bg-violet-600 text-white font-semibold text-sm disabled:opacity-50 interactive-btn"
+                  data-testid="button-ai-buscar-submit"
+                >
+                  {aiLoading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+                  {aiLoading ? 'Buscando...' : 'Buscar'}
+                </button>
+              </form>
+
+              {aiError && (
+                <div className="mx-4 mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{aiError}</div>
+              )}
+
+              {aiSugerencia && (
+                <div className="mx-4 mb-2 flex items-start gap-2 p-3 bg-violet-50 border border-violet-200 rounded-xl text-xs text-violet-800">
+                  <Info size={13} className="mt-0.5 flex-shrink-0" />
+                  {aiSugerencia}
+                </div>
+              )}
+
+              {aiResultados.length > 0 && (
+                <div className="px-4 pb-4">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">{aiResultados.length} resultado(s) encontrado(s) en tu inventario</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto">
+                    {aiResultados.map((r) => {
+                      const realProd = productos.find(p => p.ID === r.id);
+                      const stockReal = realProd ? (parseInt(realProd.Stock) || 0) : 0;
+                      const sinStock = stockReal === 0;
+                      return (
+                        <button
+                          key={r.id}
+                          onClick={() => { if (!sinStock && realProd) { addToCart(realProd); } }}
+                          disabled={sinStock || !realProd}
+                          className={`text-left p-3 rounded-xl border transition-all ${sinStock || !realProd ? 'bg-gray-50 border-border opacity-50 cursor-not-allowed' : 'bg-white border-violet-200 hover:border-violet-400 hover:shadow-md hover:shadow-violet-500/10 interactive-btn'}`}
+                          data-testid={`button-ai-add-${r.id}`}
+                        >
+                          <p className="font-bold text-xs leading-tight line-clamp-2">{r.nombre}</p>
+                          {r.detalle && <p className="text-xs text-muted-foreground line-clamp-1">{r.detalle}</p>}
+                          {r.relevancia && <p className="text-xs text-violet-600 mt-1 italic line-clamp-2">{r.relevancia}</p>}
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-sm font-extrabold text-primary">Q {realProd ? parseFloat(realProd['Precio unidad'] || '0').toFixed(2) : (r.precioUnidad || 0).toFixed(2)}</span>
+                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded-lg ${sinStock ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                              {sinStock ? 'Sin stock' : `${stockReal} uds`}
+                            </span>
+                          </div>
+                          {!sinStock && realProd && (
+                            <div className="mt-1 text-xs font-semibold text-violet-600 flex items-center gap-1">
+                              <Plus size={11} /> Agregar al carrito
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
@@ -168,6 +325,7 @@ export default function POSPage() {
                     onClick={() => addToCart(p)}
                     disabled={(parseInt(p.Stock) || 0) === 0}
                     className="interactive-btn text-left bg-white p-4 rounded-2xl border border-border/60 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 flex flex-col gap-1 group disabled:opacity-40 disabled:cursor-not-allowed"
+                    data-testid={`card-producto-${p.ID}`}
                   >
                     <div className="text-xs text-muted-foreground font-mono bg-accent/50 w-max px-2 py-0.5 rounded-md">{p.ID}</div>
                     <div className="font-bold text-foreground line-clamp-2 leading-tight text-sm group-hover:text-primary">{p.Nombre}</div>
@@ -210,7 +368,6 @@ export default function POSPage() {
                     </div>
                     <button onClick={() => removeFromCart(item.producto.ID, item.tipoPrecio)} className="p-1 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
                   </div>
-                  {/* Tipo precio selector */}
                   <div className="flex gap-1 mb-2">
                     {(['unidad', 'blister', 'caja'] as TipoPrecio[]).map(t => {
                       const pr = getPrecio(item.producto, t);
@@ -245,6 +402,7 @@ export default function POSPage() {
               disabled={cart.length === 0}
               onClick={() => setIsCheckoutOpen(true)}
               className="w-full interactive-btn py-4 rounded-2xl bg-gradient-to-r from-primary to-teal-500 text-white font-bold text-lg shadow-lg shadow-primary/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="button-cobrar"
             >
               <ReceiptText size={20} /> Cobrar
             </button>
