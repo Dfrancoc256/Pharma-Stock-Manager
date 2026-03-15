@@ -384,26 +384,26 @@ export default function POSPage() {
       <div className="flex gap-6 h-[calc(100vh-4rem)]">
         {/* Products Panel */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="mb-4 flex gap-2">
-            <div className="relative flex-1">
+          <div className="mb-4">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
               <input
                 type="text"
                 placeholder="Buscar por nombre, detalle, casa, categoría..."
-                className="input-field pl-10"
+                className="input-field pl-10 pr-12"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 data-testid="input-search-pos"
               />
+              <button
+                onClick={openAI}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-xl text-muted-foreground hover:text-violet-600 hover:bg-violet-50 transition-colors"
+                title="Buscar por síntoma con IA"
+                data-testid="button-buscar-ia-pos"
+              >
+                <Sparkles size={17} className={showAI ? 'text-violet-600' : ''} />
+              </button>
             </div>
-            <button
-              onClick={openAI}
-              className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-violet-500 to-primary text-white font-semibold text-sm shadow-lg shadow-violet-500/20 interactive-btn"
-              data-testid="button-buscar-ia-pos"
-            >
-              <Sparkles size={16} />
-              Buscar con IA
-            </button>
           </div>
 
           {/* AI Panel */}
