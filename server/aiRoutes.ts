@@ -3,6 +3,13 @@ import type { Express } from "express";
 import OpenAI from "openai";
 import { getStock, getMovimientos } from "./googleSheets";
 
+// Groq (gratuito) para búsqueda/recomendaciones del POS
+const groq = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY,
+  baseURL: "https://api.groq.com/openai/v1",
+});
+
+// OpenAI (integración Replit) para info detallada de producto
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -20,8 +27,8 @@ export function registerAIRoutes(app: Express) {
     if (!nombre) return res.status(400).json({ message: "nombre requerido" });
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const completion = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
         messages: [
           {
             role: "system",
@@ -46,7 +53,7 @@ Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instr
           }
         ],
         response_format: { type: "json_object" },
-        max_completion_tokens: 600,
+        max_tokens: 600,
       });
 
       const content = completion.choices[0]?.message?.content || "{}";
@@ -80,14 +87,14 @@ Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instr
         .map((p: any) => `ID:${p.id} | ${p.nombre} ${p.detalle} | Cat: ${p.categoria} | Precio: Q${p.precioUnidad}`)
         .join("\n");
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const completion = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
         messages: [
           {
             role: "system",
             content: `Eres el asistente de una farmacia en Guatemala. El usuario busca un medicamento o producto.
 Tu tarea: analizar el catálogo y devolver los productos más relevantes para la búsqueda.
-Responde SOLO con JSON válido en este formato:
+Responde SOLO con JSON válido en este formato exacto, sin markdown:
 {
   "resultados": [
     { "id": "P-000001", "nombre": "Nombre", "detalle": "detalle", "categoria": "cat", "precioUnidad": 10, "relevancia": "Por qué este producto es relevante" }
@@ -102,7 +109,7 @@ Máximo 6 resultados. Si no hay coincidencias claras, devuelve los más cercanos
           }
         ],
         response_format: { type: "json_object" },
-        max_completion_tokens: 1000,
+        max_tokens: 1000,
       });
 
       const content = completion.choices[0]?.message?.content || "{}";
@@ -136,15 +143,15 @@ Máximo 6 resultados. Si no hay coincidencias claras, devuelve los más cercanos
         .map((p: any) => `ID:${p.id} | ${p.nombre} ${p.detalle} | Cat: ${p.categoria} | Q${p.precioUnidad}`)
         .join("\n");
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const completion = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
         messages: [
           {
             role: "system",
             content: `Eres el asistente de una farmacia en Guatemala. 
 Tu tarea: dado un producto, recomendar otros productos complementarios o alternativos del catálogo.
 Considera combinaciones médicas comunes (ej: antibiótico + probiótico, analgésico + antiinflamatorio).
-Responde SOLO con JSON válido:
+Responde SOLO con JSON válido sin markdown:
 {
   "complementarios": [
     { "id": "P-000001", "nombre": "Nombre", "detalle": "detalle", "precioUnidad": 10, "razon": "Por qué se recomienda junto" }
@@ -162,7 +169,7 @@ Máximo 3 de cada tipo.`
           }
         ],
         response_format: { type: "json_object" },
-        max_completion_tokens: 800,
+        max_tokens: 800,
       });
 
       const content = completion.choices[0]?.message?.content || "{}";
@@ -197,15 +204,15 @@ Máximo 3 de cada tipo.`
       const precioUnidad = parseNum(producto["Precio unidad"]);
       const precioCompra = parseNum(producto["Precio compra"]);
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const completion = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
         messages: [
           {
             role: "system",
             content: `Eres un analista de inventario para una farmacia en Guatemala.
 Tu tarea: estimar cuánto durará el stock actual de un medicamento y dar recomendaciones.
 Considera que es una farmacia pequeña de barrio en Guatemala.
-Responde SOLO con JSON válido:
+Responde SOLO con JSON válido sin markdown:
 {
   "diasEstimados": 30,
   "semanas": 4,
@@ -233,7 +240,7 @@ Analiza el nivel de stock y proporciona estimación de duración para esta farma
           }
         ],
         response_format: { type: "json_object" },
-        max_completion_tokens: 500,
+        max_tokens: 500,
       });
 
       const content = completion.choices[0]?.message?.content || "{}";
