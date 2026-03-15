@@ -1,0 +1,325 @@
+Perfecto. Vamos a hacerlo igual que tu proyecto de RRSS: simple, limpio y directo con Google Sheets API. Te dejaré un PROMPT maestro que puedes usar para iniciar el proyecto o para pedir ayuda manteniendo siempre la misma arquitectura.
+________________________________________
+PROMPT MAESTRO – Sistema Web Farmacia con Google Sheets API
+Quiero crear una plataforma web para gestión de farmacia utilizando HTML, CSS y JavaScript puro, conectada directamente a Google Sheets mediante Google Sheets API, sin Apps Script.
+________________________________________
+Objetivo del sistema
+Crear un POS Web para farmacia que permita:
+•	buscar productos
+•	vender productos
+•	manejar fiados
+•	registrar movimientos
+•	ver dashboard
+•	administrar usuarios
+Todo usando Google Sheets como base de datos.
+________________________________________
+Base de datos (Google Sheets)
+El sistema utiliza una hoja llamada:
+Farmacia DB
+con las siguientes pestañas:
+Stock
+Ventas
+Detalle_Venta
+Movimientos
+Fiadores
+Usuarios
+Compras
+Detalle_Compra
+________________________________________
+Columnas principales
+Stock
+ID
+Nombre
+Detalle
+Casa
+Categoria
+Precio compra
+Precio unidad
+Precio blister
+Precio caja
+Posicion
+Stock
+Drogueria
+Unidades blister
+Unidades caja
+________________________________________
+Ventas
+ID_Venta
+Fecha
+Usuario
+Cliente
+Tipo
+Fiador_ID
+Metodo_pago
+Total
+________________________________________
+Detalle_Venta
+ID_Venta
+Producto_ID
+Nombre
+Tipo_precio
+Cantidad
+Precio_unitario
+Subtotal
+Costo_unitario
+Utilidad
+________________________________________
+Movimientos
+ID_Mov
+Fecha
+Tipo
+Concepto
+Monto
+Usuario
+Referencia
+________________________________________
+Fiadores
+Fiador_ID
+Nombre
+Telefono
+Direccion
+Saldo_actual
+________________________________________
+Usuarios
+Email
+Rol
+Activo
+________________________________________
+Arquitectura del proyecto
+Debe usarse una arquitectura simple y clara.
+farmacia-web
+│
+├── public
+│
+│   ├── index.html
+│
+│   ├── pages
+│   │
+│   │   ├── login.html
+│   │   ├── dashboard.html
+│   │   ├── ventas.html
+│   │   ├── fiadores.html
+│   │   ├── balances.html
+│   │   └── usuarios.html
+│
+│
+│   ├── assets
+│   │
+│   │   ├── css
+│   │   │
+│   │   │   base.css
+│   │   │   layout.css
+│   │   │   components.css
+│   │   │   dashboard.css
+│   │   │   ventas.css
+│   │   │
+│   │   ├── img
+│   │   └── icons
+│
+│
+│   ├── js
+│   │
+│   │   ├── config
+│   │   │   config.js
+│   │   │
+│   │   ├── core
+│   │   │
+│   │   │   auth.js
+│   │   │   sheets.js
+│   │   │   session.js
+│   │   │   layout.js
+│   │   │   ui.js
+│   │   │
+│   │   ├── modules
+│   │   │
+│   │   │   login.js
+│   │   │   dashboard.js
+│   │   │   ventas.js
+│   │   │   fiadores.js
+│   │   │   balances.js
+│   │   │   usuarios.js
+│   │
+│   └── libs
+│       jspdf.umd.min.js
+│
+└── README.md
+________________________________________
+Configuración global
+config.js
+Debe contener:
+SPREADSHEET_ID
+GOOGLE_CLIENT_ID
+SCOPES
+Ejemplo:
+const CONFIG = {
+
+  SPREADSHEET_ID: "ID_DE_TU_SHEET",
+
+  GOOGLE_CLIENT_ID: "CLIENT_ID_GOOGLE",
+
+  SCOPES: "https://www.googleapis.com/auth/spreadsheets"
+
+}
+________________________________________
+Conexión con Google Sheets API
+Archivo:
+js/core/sheets.js
+Debe encargarse de:
+leer datos
+leerHoja(nombreHoja)
+ejemplo
+Stock
+Usuarios
+Ventas
+________________________________________
+agregar fila
+appendFila(nombreHoja, datos)
+________________________________________
+actualizar rango
+updateRango(rango, datos)
+________________________________________
+Sistema de autenticación
+Debe usarse Google Identity Services.
+Flujo:
+Usuario entra con Google
+↓
+obtener email
+↓
+leer hoja Usuarios
+↓
+validar que exista
+↓
+guardar sesión
+________________________________________
+Sesión
+Guardar en localStorage
+email
+rol
+token_google
+________________________________________
+Layout del sistema
+Todas las páginas deben usar:
+Sidebar izquierda
+Topbar superior
+Vista central
+________________________________________
+Sidebar
+Debe contener:
+Dashboard
+Ventas
+Fiadores
+Balances
+Usuarios
+Salir
+________________________________________
+Ventanas del sistema
+Login
+Debe permitir:
+Login con Google
+Validar contra hoja Usuarios.
+________________________________________
+Dashboard
+Debe mostrar:
+Total productos
+Existencia total
+Productos con bajo stock
+Ingresos
+Egresos
+Caja neta
+Top productos vendidos
+Datos obtenidos desde:
+Stock
+Movimientos
+Detalle_Venta
+________________________________________
+Ventas (POS)
+Debe permitir:
+buscar productos
+por:
+nombre
+detalle
+casa
+categoria
+leyendo hoja:
+Stock
+________________________________________
+agregar al carrito
+mostrar:
+producto
+tipo precio
+cantidad
+subtotal
+________________________________________
+finalizar venta
+Debe:
+1.	crear registro en Ventas
+2.	crear registros en Detalle_Venta
+3.	descontar stock en Stock
+4.	registrar ingreso en Movimientos
+5.	actualizar saldo si es FIADO
+________________________________________
+Fiadores
+Debe permitir:
+ver fiadores
+ver saldo
+agregar fiador
+actualizar saldo
+________________________________________
+Balances
+Debe mostrar:
+ingresos
+egresos
+compras
+gastos
+caja neta
+filtrados por fecha.
+________________________________________
+Usuarios
+Solo rol ADMIN
+Debe permitir:
+ver usuarios
+activar/desactivar
+crear usuario
+cambiar rol
+________________________________________
+PDF de venta
+Utilizar:
+jsPDF
+Generar comprobante con:
+productos
+cantidades
+subtotal
+total
+fecha
+________________________________________
+Diseño visual
+Debe ser:
+moderno
+limpio
+responsive
+estilo POS
+colores recomendados:
+azul
+gris claro
+verde confirmación
+rojo error
+________________________________________
+Objetivo final
+Crear un Sistema Web de Farmacia completamente funcional conectado a Google Sheets mediante Sheets API, con arquitectura limpia, modular y fácil de escalar.
+________________________________________
+Recomendación profesional
+Tu proyecto debería seguir esta lógica:
+Frontend (HTML + JS)
+↓
+Google Sheets API
+↓
+Google Sheets (DB)
+sin backend adicional.
+________________________________________
+💡 Si quieres, en el siguiente mensaje puedo darte también:
+•	el código base completo del proyecto
+•	login con Google listo
+•	conexión a Sheets funcionando
+•	buscador de productos funcionando
+para que literalmente en 15 minutos tu sistema ya lea el Stock real.
+
