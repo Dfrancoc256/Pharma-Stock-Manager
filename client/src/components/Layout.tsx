@@ -9,6 +9,7 @@ import {
   Stethoscope,
   LogOut,
   UserCircle2,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
   { href: "/inventory", label: "Inventario", icon: PackageSearch },
   { href: "/fiadores", label: "Fiadores", icon: Users },
   { href: "/balances", label: "Balances", icon: TrendingUp },
+  { href: "/ia", label: "Asistente IA", icon: Sparkles },
   { href: "/users", label: "Usuarios", icon: ShieldCheck, adminOnly: true },
 ];
 

@@ -1,0 +1,210 @@
+// IA Farmacia - Búsqueda inteligente, recomendaciones y estimación de stock
+import type { Express } from "express";
+import OpenAI from "openai";
+import { getStock, getMovimientos } from "./googleSheets";
+
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+});
+
+function parseNum(val: string): number {
+  return parseFloat(String(val).replace(",", ".")) || 0;
+}
+
+export function registerAIRoutes(app: Express) {
+
+  // POST /api/ai/buscar - Búsqueda inteligente por síntoma o nombre
+  app.post("/api/ai/buscar", async (req, res) => {
+    const { query } = req.body;
+    if (!query) return res.status(400).json({ message: "query requerido" });
+
+    try {
+      const stock = await getStock();
+      const productos = stock
+        .filter((p: any) => p.ID && p.Nombre)
+        .map((p: any) => ({
+          id: p.ID,
+          nombre: p.Nombre,
+          detalle: p.Detalle || "",
+          categoria: p.Categoria || "",
+          precioUnidad: parseNum(p["Precio unidad"]),
+          stock: parseInt(p.Stock) || 0,
+        }));
+
+      const catalogoTexto = productos
+        .map((p: any) => `ID:${p.id} | ${p.nombre} ${p.detalle} | Cat: ${p.categoria} | Stock: ${p.stock} | Precio: Q${p.precioUnidad}`)
+        .join("\n");
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `Eres el asistente de una farmacia en Guatemala. El usuario busca un medicamento o producto.
+Tu tarea: analizar el catálogo y devolver los productos más relevantes para la búsqueda.
+Responde SOLO con JSON válido en este formato:
+{
+  "resultados": [
+    { "id": "P-000001", "nombre": "Nombre", "detalle": "detalle", "categoria": "cat", "precioUnidad": 10, "stock": 50, "relevancia": "Por qué este producto es relevante" }
+  ],
+  "sugerencia": "Texto breve con consejo o aclaración si aplica"
+}
+Máximo 6 resultados. Si no hay coincidencias claras, devuelve los más cercanos.`
+          },
+          {
+            role: "user",
+            content: `Catálogo disponible:\n${catalogoTexto}\n\nBúsqueda del cliente: "${query}"`
+          }
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 1000,
+      });
+
+      const content = completion.choices[0]?.message?.content || "{}";
+      const parsed = JSON.parse(content);
+      res.json(parsed);
+    } catch (err: any) {
+      console.error("AI buscar error:", err.message);
+      res.status(500).json({ message: "Error en búsqueda IA: " + err.message });
+    }
+  });
+
+  // POST /api/ai/recomendar - Recomendaciones basadas en un producto
+  app.post("/api/ai/recomendar", async (req, res) => {
+    const { productoId, nombre } = req.body;
+    if (!productoId && !nombre) return res.status(400).json({ message: "productoId o nombre requerido" });
+
+    try {
+      const stock = await getStock();
+      const productos = stock
+        .filter((p: any) => p.ID && p.Nombre)
+        .map((p: any) => ({
+          id: p.ID,
+          nombre: p.Nombre,
+          detalle: p.Detalle || "",
+          categoria: p.Categoria || "",
+          precioUnidad: parseNum(p["Precio unidad"]),
+          stock: parseInt(p.Stock) || 0,
+        }));
+
+      const productoBase = productos.find((p: any) => p.id === productoId || p.nombre.toLowerCase() === (nombre || "").toLowerCase());
+      const catalogoTexto = productos
+        .filter((p: any) => p.stock > 0)
+        .map((p: any) => `ID:${p.id} | ${p.nombre} ${p.detalle} | Cat: ${p.categoria} | Q${p.precioUnidad}`)
+        .join("\n");
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `Eres el asistente de una farmacia en Guatemala. 
+Tu tarea: dado un producto, recomendar otros productos complementarios o alternativos del catálogo.
+Considera combinaciones médicas comunes (ej: antibiótico + probiótico, analgésico + antiinflamatorio).
+Responde SOLO con JSON válido:
+{
+  "complementarios": [
+    { "id": "P-000001", "nombre": "Nombre", "detalle": "detalle", "precioUnidad": 10, "stock": 50, "razon": "Por qué se recomienda junto" }
+  ],
+  "alternativos": [
+    { "id": "P-000002", "nombre": "Nombre", "detalle": "detalle", "precioUnidad": 8, "stock": 30, "razon": "Es alternativa por..." }
+  ],
+  "nota": "Nota médica breve si aplica"
+}
+Máximo 3 de cada tipo.`
+          },
+          {
+            role: "user",
+            content: `Producto seleccionado: ${productoBase ? `${productoBase.nombre} ${productoBase.detalle} (Cat: ${productoBase.categoria})` : nombre || productoId}\n\nCatálogo disponible:\n${catalogoTexto}`
+          }
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 800,
+      });
+
+      const content = completion.choices[0]?.message?.content || "{}";
+      const parsed = JSON.parse(content);
+      res.json(parsed);
+    } catch (err: any) {
+      console.error("AI recomendar error:", err.message);
+      res.status(500).json({ message: "Error en recomendaciones IA: " + err.message });
+    }
+  });
+
+  // POST /api/ai/duracion - Estima cuánto durará el stock
+  app.post("/api/ai/duracion", async (req, res) => {
+    const { productoId } = req.body;
+    if (!productoId) return res.status(400).json({ message: "productoId requerido" });
+
+    try {
+      const [stock, movimientos] = await Promise.all([getStock(), getMovimientos()]);
+
+      const producto = stock.find((p: any) => p.ID === productoId);
+      if (!producto) return res.status(404).json({ message: "Producto no encontrado" });
+
+      const stockActual = parseInt(producto.Stock) || 0;
+      const nombre = producto.Nombre;
+
+      // Calcular ventas históricas del producto desde movimientos
+      const ventasRelacionadas = movimientos.filter((m: any) =>
+        m.Concepto && m.Concepto.toLowerCase().includes(nombre.toLowerCase().split(" ")[0])
+      );
+
+      // Datos para el análisis
+      const precioUnidad = parseNum(producto["Precio unidad"]);
+      const precioCompra = parseNum(producto["Precio compra"]);
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `Eres un analista de inventario para una farmacia en Guatemala.
+Tu tarea: estimar cuánto durará el stock actual de un medicamento y dar recomendaciones.
+Considera que es una farmacia pequeña de barrio en Guatemala.
+Responde SOLO con JSON válido:
+{
+  "diasEstimados": 30,
+  "semanas": 4,
+  "nivel": "ok",
+  "mensaje": "Con el stock actual se estima una duración de X días",
+  "recomendacion": "Sugerencia de reorden o acción",
+  "alertas": ["alerta si stock bajo", "otra alerta si aplica"],
+  "margenUtilidad": "15%",
+  "puntoPedido": 20
+}
+Niveles posibles: "critico" (< 7 días), "bajo" (7-14 días), "ok" (15-30 días), "alto" (> 30 días)`
+          },
+          {
+            role: "user",
+            content: `Producto: ${nombre} ${producto.Detalle || ""}
+Categoría: ${producto.Categoria || "N/A"}
+Stock actual: ${stockActual} unidades
+Precio de compra: Q${precioCompra}
+Precio de venta unidad: Q${precioUnidad}
+Droguería: ${producto.Drogueria || "N/A"}
+Historial de movimientos relacionados: ${ventasRelacionadas.length} registros encontrados
+${ventasRelacionadas.length > 0 ? ventasRelacionadas.slice(0, 5).map((m: any) => `- ${m.Fecha}: ${m.Concepto} Q${m.Monto}`).join("\n") : "Sin historial de ventas registrado"}
+
+Analiza el nivel de stock y proporciona estimación de duración para esta farmacia de barrio.`
+          }
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 500,
+      });
+
+      const content = completion.choices[0]?.message?.content || "{}";
+      const parsed = JSON.parse(content);
+
+      // Añadir datos del producto en la respuesta
+      res.json({
+        ...parsed,
+        producto: { id: productoId, nombre, stockActual, precioUnidad, precioCompra },
+      });
+    } catch (err: any) {
+      console.error("AI duracion error:", err.message);
+      res.status(500).json({ message: "Error en análisis IA: " + err.message });
+    }
+  });
+}

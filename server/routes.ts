@@ -5,6 +5,7 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { setupSimpleAuth, isAuthenticated } from "./simpleAuth";
 import { registerSheetsRoutes } from "./sheetsRoutes";
+import { registerAIRoutes } from "./aiRoutes";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -16,6 +17,9 @@ export async function registerRoutes(
 
   // Google Sheets Routes
   registerSheetsRoutes(app);
+
+  // AI Routes (búsqueda, recomendaciones, duración de stock)
+  registerAIRoutes(app);
 
   // Users
   app.get(api.users.list.path, async (req, res) => {
