@@ -5,8 +5,8 @@ import {
   ShoppingCart, BarChart2, ArrowUpRight, ArrowDownRight, CalendarDays
 } from "lucide-react";
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Cell
 } from "recharts";
 
 interface DashboardData {
@@ -21,6 +21,7 @@ interface DashboardData {
   ventasPorDia?: { fecha: string; ingresos: number; egresos: number }[];
   ventasPorHora?: { hora: string; ventas: number }[];
   topCategorias?: { nombre: string; cantidad: number }[];
+  ventasPorMes?: { label: string; ingresos: number; order: number }[];
 }
 
 const BAR_COLORS = [
@@ -28,17 +29,14 @@ const BAR_COLORS = [
   "#ef4444", "#06b6d4", "#84cc16", "#f97316",
 ];
 
-const CustomTooltipPesos = ({ active, payload, label }: any) => {
+const CustomTooltipMes = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-border rounded-2xl shadow-xl p-3 text-sm min-w-[140px]">
-      <p className="font-bold text-muted-foreground mb-2">{label}</p>
-      {payload.map((p: any) => (
-        <div key={p.dataKey} className="flex items-center justify-between gap-4">
-          <span style={{ color: p.color }} className="font-medium">{p.name}</span>
-          <span className="font-bold">Q {p.value.toLocaleString('es-GT', { minimumFractionDigits: 2 })}</span>
-        </div>
-      ))}
+    <div className="bg-white border border-border rounded-2xl shadow-xl p-3 text-sm min-w-[160px]">
+      <p className="font-bold text-muted-foreground mb-1">{label}</p>
+      <p className="font-extrabold text-primary">
+        Q {payload[0].value.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+      </p>
     </div>
   );
 };
@@ -91,6 +89,13 @@ export default function DashboardPage() {
   const fechaHoy = new Date().toLocaleDateString('es-GT', {
     weekday: 'long', day: 'numeric', month: 'long'
   });
+
+  const mesData = (data?.ventasPorMes ?? []).map(m => ({
+    label: m.label,
+    ingresos: m.ingresos,
+  }));
+
+  const maxIngreso = mesData.length > 0 ? Math.max(...mesData.map(m => m.ingresos)) : 0;
 
   return (
     <Layout>
@@ -212,44 +217,56 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* ── Ingresos vs Egresos por día ── */}
+          {/* ── Gráfica de Ventas por Mes ── */}
           <div className="glass-card rounded-3xl p-6">
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-2xl bg-green-100 flex items-center justify-center">
-                <TrendingUp size={18} className="text-green-600" />
+              <div className="w-9 h-9 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <BarChart2 size={18} className="text-primary" />
               </div>
               <div>
-                <h3 className="font-bold text-foreground">Ingresos vs Egresos</h3>
-                <p className="text-xs text-muted-foreground">Últimos 14 días · en Q</p>
+                <h3 className="font-bold text-foreground">Ventas por Mes</h3>
+                <p className="text-xs text-muted-foreground">Ingresos mensuales · últimos 12 meses · en Q</p>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={diasData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gradIngresos" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
-                  </linearGradient>
-                  <linearGradient id="gradEgresos" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="fecha" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false}
-                  tickFormatter={v => `Q${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`} />
-                <Tooltip content={<CustomTooltipPesos />} />
-                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                <Area type="monotone" dataKey="ingresos" name="Ingresos" stroke="#10b981" strokeWidth={2.5}
-                  fill="url(#gradIngresos)" dot={false} activeDot={{ r: 5, strokeWidth: 0 }} />
-                <Area type="monotone" dataKey="egresos" name="Egresos" stroke="#ef4444" strokeWidth={2}
-                  fill="url(#gradEgresos)" dot={false} activeDot={{ r: 5, strokeWidth: 0 }} />
-              </AreaChart>
-            </ResponsiveContainer>
+            {mesData.every(m => m.ingresos === 0) ? (
+              <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+                <BarChart2 size={40} className="opacity-20 mb-2" />
+                <p className="text-sm">No hay datos de ventas por mes aún</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={mesData} margin={{ top: 4, right: 8, left: 0, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                    tickLine={false}
+                    axisLine={false}
+                    angle={-35}
+                    textAnchor="end"
+                    interval={0}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={v => `Q${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`}
+                  />
+                  <Tooltip content={<CustomTooltipMes />} cursor={{ fill: 'rgba(16,185,129,0.06)', radius: 8 }} />
+                  <Bar dataKey="ingresos" name="Ingresos" radius={[6, 6, 0, 0]} maxBarSize={48}>
+                    {mesData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.ingresos === maxIngreso ? '#10b981' : '#10b98166'}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
-          {/* ── Top Categorías + Ranking de ventas ── */}
+          {/* ── Top Categorías + Top Productos ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             {(data.topCategorias?.length ?? 0) > 0 && (
@@ -293,28 +310,40 @@ export default function DashboardPage() {
                     <TrendingUp size={18} className="text-green-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-foreground">Ranking de ventas</h3>
-                    <p className="text-xs text-muted-foreground">Productos más vendidos · en Q</p>
+                    <h3 className="font-bold text-foreground">Top Productos Más Vendidos</h3>
+                    <p className="text-xs text-muted-foreground">Ordenado por unidades vendidas</p>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  {data.topProductos.slice(0, 6).map((p, i) => (
-                    <div key={p.id} className="flex items-center gap-3 py-2 border-b border-border/40 last:border-0">
-                      <div
-                        className="w-7 h-7 rounded-xl flex items-center justify-center text-white font-black text-xs flex-shrink-0"
-                        style={{ backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }}
-                      >
-                        {i + 1}
+                  {data.topProductos.slice(0, 8).map((p, i) => {
+                    const maxQty = data.topProductos[0].cantidad;
+                    const pct = Math.round((p.cantidad / maxQty) * 100);
+                    return (
+                      <div key={p.id} className="flex items-center gap-3 py-2">
+                        <div
+                          className="w-7 h-7 rounded-xl flex items-center justify-center text-white font-black text-xs flex-shrink-0"
+                          style={{ backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }}
+                        >
+                          {i + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <p className="font-semibold text-sm truncate max-w-[55%]">{p.nombre}</p>
+                            <p className="font-extrabold text-sm text-primary">Q {p.total.toFixed(2)}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-full rounded-full"
+                                style={{ width: `${pct}%`, backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }}
+                              />
+                            </div>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">{p.cantidad} uds</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">{p.nombre}</p>
-                        <p className="text-xs text-muted-foreground">{p.cantidad} uds vendidas</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-extrabold text-sm text-primary">Q {p.total.toFixed(2)}</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

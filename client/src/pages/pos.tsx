@@ -4,7 +4,8 @@ import { Layout } from "@/components/Layout";
 import {
   Search, Plus, Minus, Trash2, ReceiptText, UserPlus,
   ShoppingCart, PackageSearch, Sparkles, X, Loader2, Info,
-  Clock, AlertTriangle, CheckCircle, BookOpen, ChevronRight
+  Clock, AlertTriangle, CheckCircle, BookOpen, ChevronRight,
+  MessageCircle, Mail, Printer, Share2
 } from "lucide-react";
 import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
@@ -16,7 +17,7 @@ interface Producto {
   'Unidades blister': string; 'Unidades caja': string;
 }
 
-interface Fiador { Fiador_ID: string; Nombre: string; Saldo_actual: string; }
+interface Fiador { Fiador_ID: string; Nombre: string; Saldo_actual: string; Telefono?: string; }
 
 type TipoPrecio = 'unidad' | 'blister' | 'caja';
 type CartItem = { producto: Producto; cantidad: number; tipoPrecio: TipoPrecio; };
@@ -230,7 +231,24 @@ export default function POSPage() {
   const [fiadorId, setFiadorId] = useState('');
   const [clienteNombre, setClienteNombre] = useState('');
   const [amountPaid, setAmountPaid] = useState('');
-  const [receiptData, setReceiptData] = useState<{ items: CartItem[]; total: number; fecha: string; paid?: number; change?: number; } | null>(null);
+  const [receiptData, setReceiptData] = useState<{
+    items: CartItem[]; total: number; fecha: string;
+    paid?: number; change?: number;
+    clienteNombre?: string; clienteTelefono?: string; clienteEmail?: string;
+  } | null>(null);
+
+  // Inline fiador creation state
+  const [fiadorModo, setFiadorModo] = useState<'existente' | 'nuevo'>('existente');
+  const [nuevoFiadorNombre, setNuevoFiadorNombre] = useState('');
+  const [nuevoFiadorTel, setNuevoFiadorTel] = useState('');
+  const [nuevoFiadorDir, setNuevoFiadorDir] = useState('');
+  const [nuevoFiadorLimite, setNuevoFiadorLimite] = useState('500');
+  const [nuevoFiadorEmail, setNuevoFiadorEmail] = useState('');
+
+  // Share receipt state
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [shareWhatsapp, setShareWhatsapp] = useState('');
+  const [shareEmail, setShareEmail] = useState('');
 
   // Producto info panel
   const [infoProducto, setInfoProducto] = useState<Producto | null>(null);
@@ -260,6 +278,19 @@ export default function POSPage() {
     },
   });
 
+  const createFiador = useMutation({
+    mutationFn: async (body: any) => {
+      const res = await fetch('/api/sheets/fiadores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Error al crear fiador');
+      return res.json();
+    },
+  });
+
   const createVenta = useMutation({
     mutationFn: async (body: any) => {
       const res = await fetch('/api/sheets/ventas', {
@@ -271,20 +302,34 @@ export default function POSPage() {
       if (!res.ok) throw new Error('Error al procesar venta');
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/sheets/stock'] });
       queryClient.invalidateQueries({ queryKey: ['/api/sheets/fiadores'] });
       const total = cartTotal;
+      const email = tipo === 'fiado' && fiadorModo === 'nuevo' ? nuevoFiadorEmail : '';
+      const telefono = tipo === 'fiado' && fiadorModo === 'nuevo' ? nuevoFiadorTel
+        : tipo === 'fiado' ? fiadores.find(f => f.Fiador_ID === fiadorId)?.Telefono || ''
+        : '';
+      const nombre = tipo === 'fiado'
+        ? (fiadorModo === 'nuevo' ? nuevoFiadorNombre : (fiadores.find(f => f.Fiador_ID === fiadorId)?.Nombre || ''))
+        : (clienteNombre || 'Contado');
       setReceiptData({
         items: [...cart], total,
         fecha: format(new Date(), 'dd/MM/yyyy HH:mm'),
         paid: tipo === 'contado' ? parseFloat(amountPaid) : undefined,
         change: tipo === 'contado' ? parseFloat(amountPaid) - total : undefined,
+        clienteNombre: nombre,
+        clienteTelefono: telefono,
+        clienteEmail: email,
       });
+      setShareWhatsapp(telefono.replace(/\D/g, ''));
+      setShareEmail(email);
+      setIsShareOpen(true);
       setCart([]);
       setIsCheckoutOpen(false);
       setTipo('contado'); setFiadorId(''); setClienteNombre(''); setAmountPaid('');
-      setTimeout(() => window.print(), 100);
+      setFiadorModo('existente'); setNuevoFiadorNombre(''); setNuevoFiadorTel('');
+      setNuevoFiadorDir(''); setNuevoFiadorLimite('500'); setNuevoFiadorEmail('');
     }
   });
 
@@ -339,16 +384,40 @@ export default function POSPage() {
     setCart(prev => prev.filter(i => !(i.producto.ID === id && i.tipoPrecio === tipoPrecio)));
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (cart.length === 0) return;
-    if (tipo === 'fiado' && !fiadorId) { alert('Selecciona un fiador'); return; }
+    if (tipo === 'fiado' && fiadorModo === 'existente' && !fiadorId) { alert('Selecciona un fiador'); return; }
+    if (tipo === 'fiado' && fiadorModo === 'nuevo' && !nuevoFiadorNombre.trim()) { alert('Ingresa el nombre del fiador'); return; }
     if (tipo === 'contado' && (!amountPaid || parseFloat(amountPaid) < cartTotal)) { alert('Ingresa un monto válido'); return; }
 
-    const fiadorSeleccionado = fiadores.find(f => f.Fiador_ID === fiadorId);
+    let resolvedFiadorId = fiadorId;
+
+    if (tipo === 'fiado' && fiadorModo === 'nuevo') {
+      try {
+        const result = await createFiador.mutateAsync({
+          nombre: nuevoFiadorNombre.trim(),
+          telefono: nuevoFiadorTel.trim(),
+          direccion: nuevoFiadorDir.trim(),
+          limiteCredito: parseFloat(nuevoFiadorLimite) || 500,
+        });
+        resolvedFiadorId = result.id || '';
+        queryClient.invalidateQueries({ queryKey: ['/api/sheets/fiadores'] });
+      } catch {
+        alert('Error al crear el fiador. Intenta de nuevo.');
+        return;
+      }
+    }
+
+    const fiadorSeleccionado = tipo === 'fiado' && fiadorModo === 'existente'
+      ? fiadores.find(f => f.Fiador_ID === fiadorId)
+      : null;
+
     createVenta.mutate({
-      cliente: tipo === 'fiado' ? (fiadorSeleccionado?.Nombre || clienteNombre) : (clienteNombre || 'Contado'),
+      cliente: tipo === 'fiado'
+        ? (fiadorModo === 'nuevo' ? nuevoFiadorNombre.trim() : (fiadorSeleccionado?.Nombre || ''))
+        : (clienteNombre || 'Contado'),
       tipo,
-      fiadorId: tipo === 'fiado' ? fiadorId : '',
+      fiadorId: tipo === 'fiado' ? resolvedFiadorId : '',
       metodoPago,
       total: cartTotal.toFixed(2),
       items: cart.map(i => ({
@@ -664,13 +733,49 @@ export default function POSPage() {
               {tipo === 'fiado' && (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-semibold mb-2 flex items-center gap-1"><UserPlus size={16} /> Seleccionar Fiador</label>
-                    <select className="input-field" value={fiadorId} onChange={e => setFiadorId(e.target.value)}>
-                      <option value="">-- Seleccionar fiador --</option>
-                      {fiadores.filter(f => f.Fiador_ID).map(f => (
-                        <option key={f.Fiador_ID} value={f.Fiador_ID}>{f.Nombre} (Saldo: Q {parseFloat(f.Saldo_actual || '0').toFixed(2)})</option>
+                    <label className="block text-sm font-semibold mb-2 flex items-center gap-1"><UserPlus size={16} /> Fiador</label>
+                    <div className="flex gap-2 mb-3">
+                      {(['existente', 'nuevo'] as const).map(m => (
+                        <button key={m} type="button" onClick={() => setFiadorModo(m)}
+                          className={`flex-1 py-2 rounded-xl font-bold border-2 interactive-btn text-sm ${fiadorModo === m ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}>
+                          {m === 'existente' ? 'Existente' : '+ Nuevo'}
+                        </button>
                       ))}
-                    </select>
+                    </div>
+
+                    {fiadorModo === 'existente' && (
+                      <select className="input-field" value={fiadorId} onChange={e => setFiadorId(e.target.value)}>
+                        <option value="">-- Seleccionar fiador --</option>
+                        {fiadores.filter(f => f.Fiador_ID).map(f => (
+                          <option key={f.Fiador_ID} value={f.Fiador_ID}>{f.Nombre} (Saldo: Q {parseFloat(f.Saldo_actual || '0').toFixed(2)})</option>
+                        ))}
+                      </select>
+                    )}
+
+                    {fiadorModo === 'nuevo' && (
+                      <div className="space-y-2 bg-muted/30 rounded-2xl p-4 border border-border/50">
+                        <div>
+                          <label className="block text-xs font-semibold mb-1 text-muted-foreground">Nombre *</label>
+                          <input className="input-field" placeholder="Nombre completo" value={nuevoFiadorNombre} onChange={e => setNuevoFiadorNombre(e.target.value)} data-testid="input-nuevo-fiador-nombre" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold mb-1 text-muted-foreground">Teléfono</label>
+                          <input className="input-field" placeholder="502xxxxxxxx" value={nuevoFiadorTel} onChange={e => setNuevoFiadorTel(e.target.value)} data-testid="input-nuevo-fiador-tel" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold mb-1 text-muted-foreground">Correo electrónico</label>
+                          <input type="email" className="input-field" placeholder="correo@ejemplo.com" value={nuevoFiadorEmail} onChange={e => setNuevoFiadorEmail(e.target.value)} data-testid="input-nuevo-fiador-email" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold mb-1 text-muted-foreground">Dirección</label>
+                          <input className="input-field" placeholder="Dirección" value={nuevoFiadorDir} onChange={e => setNuevoFiadorDir(e.target.value)} data-testid="input-nuevo-fiador-dir" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold mb-1 text-muted-foreground">Límite de crédito (Q)</label>
+                          <input type="number" className="input-field" placeholder="500.00" value={nuevoFiadorLimite} onChange={e => setNuevoFiadorLimite(e.target.value)} data-testid="input-nuevo-fiador-limite" />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -686,12 +791,141 @@ export default function POSPage() {
         </div>
       )}
 
-      {/* Receipt */}
+      {/* Share Receipt Modal */}
+      {isShareOpen && receiptData && (() => {
+        const lines = [
+          '🏥 *FARMACIA WEB*',
+          `📅 ${receiptData.fecha}`,
+          '─────────────────────',
+          ...receiptData.items.map(item =>
+            `• ${item.producto.Nombre}\n  ${item.cantidad} x Q${getPrecio(item.producto, item.tipoPrecio).toFixed(2)} (${item.tipoPrecio}) = Q${(getPrecio(item.producto, item.tipoPrecio) * item.cantidad).toFixed(2)}`
+          ),
+          '─────────────────────',
+          `*TOTAL: Q${receiptData.total.toFixed(2)}*`,
+          receiptData.paid !== undefined ? `Recibido: Q${receiptData.paid.toFixed(2)}` : '',
+          receiptData.change !== undefined ? `Cambio: Q${receiptData.change.toFixed(2)}` : '',
+          '',
+          '¡Gracias por su preferencia!',
+        ].filter(Boolean).join('\n');
+
+        const emailBody = lines.replace(/\*/g, '').replace(/🏥|📅/g, '');
+        const emailSubject = `Recibo Farmacia Web - ${receiptData.fecha}`;
+
+        const waNum = shareWhatsapp.replace(/\D/g, '');
+        const waLink = waNum ? `https://wa.me/${waNum}?text=${encodeURIComponent(lines)}` : '';
+        const mailLink = shareEmail ? `mailto:${shareEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}` : '';
+
+        const canPrint = !!(waNum || shareEmail);
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="glass-card rounded-3xl w-full max-w-md animate-in zoom-in-95 duration-200 overflow-hidden">
+
+              {/* Header */}
+              <div className="flex items-center gap-3 p-6 border-b bg-gradient-to-r from-green-50 to-emerald-50">
+                <div className="w-10 h-10 rounded-2xl bg-green-100 flex items-center justify-center">
+                  <CheckCircle size={22} className="text-green-600" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-lg font-black text-foreground">¡Venta registrada!</h2>
+                  <p className="text-xs text-muted-foreground">
+                    {receiptData.clienteNombre && `Cliente: ${receiptData.clienteNombre} · `}
+                    Total: Q {receiptData.total.toFixed(2)}
+                  </p>
+                </div>
+                <button onClick={() => { setIsShareOpen(false); setReceiptData(null); }} className="p-2 rounded-xl hover:bg-black/5" data-testid="button-cerrar-share">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Share2 size={15} />
+                  <span className="font-medium">Compartir recibo</span>
+                </div>
+
+                {/* WhatsApp */}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold">
+                    <MessageCircle size={16} className="text-green-600" /> WhatsApp — número del destinatario
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      className="input-field flex-1"
+                      placeholder="502xxxxxxxx"
+                      value={shareWhatsapp}
+                      onChange={e => setShareWhatsapp(e.target.value.replace(/\D/g, ''))}
+                      data-testid="input-share-whatsapp"
+                    />
+                    <a
+                      href={waLink || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => { if (!waNum) e.preventDefault(); }}
+                      className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 interactive-btn text-white ${waNum ? 'bg-green-500 hover:bg-green-600' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
+                      data-testid="button-share-whatsapp"
+                    >
+                      <MessageCircle size={16} /> Enviar
+                    </a>
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold">
+                    <Mail size={16} className="text-blue-600" /> Correo electrónico
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      className="input-field flex-1"
+                      placeholder="correo@ejemplo.com"
+                      value={shareEmail}
+                      onChange={e => setShareEmail(e.target.value)}
+                      data-testid="input-share-email"
+                    />
+                    <a
+                      href={mailLink || '#'}
+                      onClick={e => { if (!shareEmail) e.preventDefault(); }}
+                      className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 interactive-btn text-white ${shareEmail ? 'bg-blue-500 hover:bg-blue-600' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
+                      data-testid="button-share-email"
+                    >
+                      <Mail size={16} /> Enviar
+                    </a>
+                  </div>
+                </div>
+
+                {/* Print — only if at least one contact entered */}
+                {canPrint && (
+                  <button
+                    onClick={() => setTimeout(() => window.print(), 100)}
+                    className="w-full py-3 rounded-2xl font-bold bg-muted text-foreground hover:bg-muted/80 flex items-center justify-center gap-2 interactive-btn"
+                    data-testid="button-imprimir"
+                  >
+                    <Printer size={18} /> Imprimir / Generar PDF
+                  </button>
+                )}
+
+                <button
+                  onClick={() => { setIsShareOpen(false); setReceiptData(null); }}
+                  className="w-full py-3 rounded-2xl font-bold bg-primary text-white interactive-btn"
+                  data-testid="button-nueva-venta"
+                >
+                  Nueva Venta
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Hidden print receipt */}
       {receiptData && (
         <div className="hidden print:block fixed inset-0 bg-white p-6 text-black text-sm font-mono" style={{ fontFamily: 'monospace' }}>
           <div className="text-center mb-4">
             <h1 className="text-xl font-black">FARMACIA WEB</h1>
             <p className="text-xs">{receiptData.fecha}</p>
+            {receiptData.clienteNombre && <p className="text-xs">Cliente: {receiptData.clienteNombre}</p>}
             <div className="border-t border-b border-black my-2 py-1 text-center text-xs">— COMPROBANTE DE VENTA —</div>
           </div>
           <div className="mb-4">

@@ -198,8 +198,13 @@ export function registerSheetsRoutes(app: Express) {
 
   app.post('/api/sheets/fiadores', async (req, res) => {
     try {
-      const { nombre, telefono, direccion } = req.body;
-      const result = await createFiadorSheet({ nombre, telefono: telefono || '', direccion: direccion || '', saldo: '0' });
+      const { nombre, telefono, direccion, limiteCredito } = req.body;
+      const result = await createFiadorSheet({
+        nombre,
+        telefono: telefono || '',
+        direccion: direccion || '',
+        limiteCredito: parseFloat(limiteCredito) || 500,
+      });
       res.status(201).json(result);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -352,6 +357,26 @@ export function registerSheetsRoutes(app: Express) {
         .slice(0, 6)
         .map(([nombre, cantidad]) => ({ nombre, cantidad }));
 
+      // Ventas por mes — últimos 12 meses
+      const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const mesMap: Record<string, { label: string; ingresos: number; order: number }> = {};
+      const ahora = new Date();
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(ahora.getFullYear(), ahora.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        mesMap[key] = { label: `${MESES[d.getMonth()]} ${d.getFullYear()}`, ingresos: 0, order: 12 - i };
+      }
+      for (const m of movs) {
+        if (!m[1] || m[2] !== 'ingreso') continue;
+        const [datePart] = m[1].split(' ');
+        const parts = datePart.split('/');
+        if (parts.length < 3) continue;
+        const [dd, mm, yyyy] = parts;
+        const key = `${yyyy}-${mm.padStart(2, '0')}`;
+        if (mesMap[key]) mesMap[key].ingresos += parseFloat(m[4] || '0');
+      }
+      const ventasPorMes = Object.values(mesMap).sort((a, b) => a.order - b.order);
+
       res.json({
         totalProductos, existenciaTotal, bajosStock, totalVentas,
         ingresos: ingresos.toFixed(2),
@@ -361,6 +386,7 @@ export function registerSheetsRoutes(app: Express) {
         ventasPorDia,
         ventasPorHora,
         topCategorias,
+        ventasPorMes,
       });
     } catch (err: any) {
       console.error('Dashboard error:', err);
