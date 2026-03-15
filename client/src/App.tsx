@@ -12,23 +12,25 @@ import BalancesPage from "@/pages/balances";
 import DashboardPage from "@/pages/dashboard";
 import UsersPage from "@/pages/users";
 import LoginPage from "@/pages/login";
-import AccesoDenegadoPage from "@/pages/acceso-denegado";
 import { useAuth } from "@/hooks/use-auth";
 
-function Router() {
+function AppRouter() {
   const { isLoading, isAuthenticated } = useAuth();
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && location !== "/login" && location !== "/acceso-denegado") {
+    if (!isLoading && !isAuthenticated && location !== "/login") {
       setLocation("/login");
     }
   }, [isAuthenticated, isLoading, location, setLocation]);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary" />
+          <p className="text-sm text-muted-foreground">Cargando...</p>
+        </div>
       </div>
     );
   }
@@ -36,7 +38,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={LoginPage} />
-      <Route path="/acceso-denegado" component={AccesoDenegadoPage} />
       <Route path="/" component={DashboardPage} />
       <Route path="/pos" component={POSPage} />
       <Route path="/inventory" component={InventoryPage} />
@@ -53,7 +54,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Router />
+        <AppRouter />
       </TooltipProvider>
     </QueryClientProvider>
   );

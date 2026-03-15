@@ -3,7 +3,7 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import { setupSimpleAuth, isAuthenticated } from "./simpleAuth";
 import { registerSheetsRoutes } from "./sheetsRoutes";
 
 export async function registerRoutes(
@@ -11,9 +11,8 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  // Replit Auth Setup
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  // Simple Session Auth (validates against Google Sheets Usuarios)
+  setupSimpleAuth(app);
 
   // Google Sheets Routes
   registerSheetsRoutes(app);
@@ -218,34 +217,6 @@ export async function registerRoutes(
       res.status(400).json({ message: err instanceof Error ? err.message : "Error" });
     }
   });
-
-  // Seed db initially if empty
-  setTimeout(async () => {
-    try {
-        const productsList = await storage.getProducts();
-        if (productsList.length === 0) {
-            await storage.createProduct({
-                name: "Paracetamol 500mg",
-                description: "Analgésico y antipirético",
-                casa: "Genfar",
-                categoria: "Analgésicos",
-                precioCompra: "10.00",
-                precioUnidad: "15.50",
-                precioBlister: "140.00",
-                precioCaja: "250.00",
-                posicion: "A1",
-                drogueria: "Droguería Inti",
-                unidadesBlister: 10,
-                unidadesCaja: 20,
-                stock: 100,
-                barcode: "1234567890"
-            });
-            console.log("Database seeded successfully");
-        }
-    } catch (e) {
-        console.log("Seed ignored or failed, schema might not be pushed yet.");
-    }
-  }, 3000);
 
   return httpServer;
 }

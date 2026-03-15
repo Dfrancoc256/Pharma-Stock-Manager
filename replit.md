@@ -23,7 +23,13 @@ Sistema web de farmacia con Google Sheets como base de datos principal, autentic
 | `Detalle_Venta` | ID_Venta, Producto_ID, Nombre, Tipo_precio, Cantidad, Precio_unitario, Subtotal, Costo_unitario, Utilidad |
 | `Movimientos` | ID_Mov, Fecha, Tipo, Concepto, Monto, Usuario, Referencia |
 | `Fiadores` | Fiador_ID, Nombre, Telefono, Direccion, Saldo_actual |
-| `Usuarios` | Email, Rol, Activo |
+| `Usuarios` | Email, Password, Rol, Activo |
+
+### Columnas de Usuarios (Login):
+- **Email**: correo o nombre de usuario para ingresar
+- **Password**: contraseña en texto plano
+- **Rol**: `ADMIN` (acceso total) o `VENDEDOR` (acceso limitado)
+- **Activo**: `TRUE` para activo, `FALSE` para bloqueado
 
 ### IMPORTANTE: La primera fila de cada pestaña debe ser los encabezados.
 
