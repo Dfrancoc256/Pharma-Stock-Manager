@@ -230,20 +230,22 @@ export function registerSheetsRoutes(app: Express) {
     }
   });
 
+  // Columns: Usuario, Pass, Rol, Activo
   app.post('/api/sheets/usuarios', async (req, res) => {
     try {
-      const { email, rol } = req.body;
-      const result = await createUsuarioSheet({ email, rol: rol || 'vendedor', activo: 'true' });
+      const { usuario, pass, rol } = req.body;
+      if (!usuario || !pass) return res.status(400).json({ message: 'Usuario y Pass son requeridos' });
+      const result = await createUsuarioSheet({ usuario, pass, rol: rol || 'VENDEDOR', activo: 'TRUE' });
       res.status(201).json(result);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
   });
 
-  app.put('/api/sheets/usuarios/:email', async (req, res) => {
+  app.put('/api/sheets/usuarios/:usuario', async (req, res) => {
     try {
-      const { rol, activo } = req.body;
-      await updateUsuarioSheet(decodeURIComponent(req.params.email), { rol, activo });
+      const { pass, rol, activo } = req.body;
+      await updateUsuarioSheet(decodeURIComponent(req.params.usuario), { pass, rol, activo });
       res.json({ message: 'Actualizado' });
     } catch (err: any) {
       res.status(500).json({ message: err.message });

@@ -89,7 +89,7 @@ export default function LoginPage() {
                 <Input
                   id="usuario"
                   type="text"
-                  placeholder="Correo o nombre de usuario"
+                  placeholder="Nombre de usuario"
                   value={usuario}
                   onChange={e => setUsuario(e.target.value)}
                   className="pl-9 h-11 border-border/60 focus:border-primary"

@@ -228,17 +228,27 @@ export async function getUsuariosSheet() {
   return rowsToObjects(rows);
 }
 
-export async function createUsuarioSheet(params: { email: string; rol: string; activo: string }) {
-  await appendFila('Usuarios', [params.email, params.rol, params.activo]);
+// Usuarios sheet columns: Usuario, Pass, Rol, Activo
+export async function createUsuarioSheet(params: { usuario: string; pass: string; rol: string; activo: string }) {
+  await appendFila('Usuarios', [params.usuario, params.pass, params.rol, params.activo]);
   return params;
 }
 
-export async function updateUsuarioSheet(email: string, updates: { rol?: string; activo?: string }) {
+export async function updateUsuarioSheet(usuario: string, updates: { pass?: string; rol?: string; activo?: string }) {
   const rows = await leerHoja('Usuarios');
+  if (!rows || rows.length < 2) return;
+  const headers = rows[0];
+  const colIndex = (name: string) => headers.findIndex((h: string) => h.trim() === name);
+  const userCol = colIndex('Usuario');
   for (let i = 1; i < rows.length; i++) {
-    if (rows[i][0] === email) {
-      if (updates.rol !== undefined) await updateRango(`Usuarios!B${i + 1}`, [[updates.rol]]);
-      if (updates.activo !== undefined) await updateRango(`Usuarios!C${i + 1}`, [[updates.activo]]);
+    if (rows[i][userCol] === usuario) {
+      const passCol = colIndex('Pass');
+      const rolCol = colIndex('Rol');
+      const activoCol = colIndex('Activo');
+      const colLetter = (n: number) => String.fromCharCode(65 + n);
+      if (updates.pass !== undefined && passCol >= 0) await updateRango(`Usuarios!${colLetter(passCol)}${i + 1}`, [[updates.pass]]);
+      if (updates.rol !== undefined && rolCol >= 0) await updateRango(`Usuarios!${colLetter(rolCol)}${i + 1}`, [[updates.rol]]);
+      if (updates.activo !== undefined && activoCol >= 0) await updateRango(`Usuarios!${colLetter(activoCol)}${i + 1}`, [[updates.activo]]);
       return;
     }
   }

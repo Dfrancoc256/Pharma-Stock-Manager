@@ -40,34 +40,32 @@ export function setupSimpleAuth(app: Express) {
     try {
       const usuarios = await getUsuariosSheet();
 
-      // Find by Email (case-insensitive) or Username column
-      const user = usuarios.find((u: any) => {
-        const emailMatch = u.Email?.toLowerCase().trim() === usuario.toLowerCase().trim();
-        const userMatch = u.Usuario?.toLowerCase().trim() === usuario.toLowerCase().trim();
-        return emailMatch || userMatch;
-      });
+      // Find by Usuario column (case-insensitive)
+      const user = usuarios.find((u: any) =>
+        u.Usuario?.toLowerCase().trim() === usuario.toLowerCase().trim()
+      );
 
       if (!user) {
         return res.status(401).json({ message: "Usuario o contraseña incorrectos" });
       }
 
-      // Check password
-      const pass = user.Password ?? user.Contraseña ?? "";
+      // Check password — column is "Pass"
+      const pass = String(user.Pass ?? "");
       if (pass !== password) {
         return res.status(401).json({ message: "Usuario o contraseña incorrectos" });
       }
 
-      // Check active
+      // Check active — column is "Activo", value must be TRUE
       const activo = String(user.Activo ?? "").toUpperCase().trim();
       if (activo !== "TRUE" && activo !== "SI" && activo !== "1" && activo !== "ACTIVO") {
         return res.status(403).json({ message: "Tu cuenta está inactiva. Contacta al administrador." });
       }
 
-      const nombre = user.Nombre ?? user.Email ?? user.Usuario ?? usuario;
+      const nombre = user.Usuario ?? usuario;
       const rol = (user.Rol ?? "vendedor").toUpperCase().trim();
 
       (req.session as any).authUser = {
-        email: user.Email ?? usuario,
+        email: user.Usuario ?? usuario,
         nombre,
         rol,
       };
