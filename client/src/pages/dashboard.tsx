@@ -2,11 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import {
   Package, TrendingUp, TrendingDown, AlertTriangle, DollarSign,
-  ShoppingCart, BarChart2, Activity, ArrowUpRight, ArrowDownRight
+  ShoppingCart, BarChart2, ArrowUpRight, ArrowDownRight, CalendarDays
 } from "lucide-react";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend, Cell
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 
 interface DashboardData {
@@ -37,21 +37,6 @@ const CustomTooltipPesos = ({ active, payload, label }: any) => {
         <div key={p.dataKey} className="flex items-center justify-between gap-4">
           <span style={{ color: p.color }} className="font-medium">{p.name}</span>
           <span className="font-bold">Q {p.value.toLocaleString('es-GT', { minimumFractionDigits: 2 })}</span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const CustomTooltipCount = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white border border-border rounded-2xl shadow-xl p-3 text-sm">
-      <p className="font-bold text-muted-foreground mb-1">{label}</p>
-      {payload.map((p: any) => (
-        <div key={p.dataKey} className="flex items-center justify-between gap-4">
-          <span style={{ color: p.color }} className="font-medium">{p.name}</span>
-          <span className="font-bold">{p.value}</span>
         </div>
       ))}
     </div>
@@ -96,7 +81,16 @@ export default function DashboardPage() {
   const caja = parseFloat(data?.cajaNeta || '0');
   const ingresos = parseFloat(data?.ingresos || '0');
   const egresos = parseFloat(data?.egresos || '0');
-  const margen = ingresos > 0 ? ((caja / ingresos) * 100).toFixed(1) : '0';
+
+  const diasData = data?.ventasPorDia ?? [];
+  const hoy = diasData[diasData.length - 1];
+  const ingresosHoy = hoy?.ingresos ?? 0;
+  const egresosHoy = hoy?.egresos ?? 0;
+  const cajaHoy = ingresosHoy - egresosHoy;
+
+  const fechaHoy = new Date().toLocaleDateString('es-GT', {
+    weekday: 'long', day: 'numeric', month: 'long'
+  });
 
   return (
     <Layout>
@@ -126,7 +120,7 @@ export default function DashboardPage() {
       {data && (
         <div className="space-y-6">
 
-          {/* ── KPI Row ── */}
+          {/* ── KPI Row 1 ── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KpiCard
               icon={Package} label="Productos" color="border-blue-500"
@@ -148,11 +142,11 @@ export default function DashboardPage() {
               label="Caja neta"
               color={caja >= 0 ? "border-emerald-500" : "border-red-500"}
               value={`Q ${caja.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
-              sub={`Margen ${margen}%`}
               trend={caja >= 0 ? 'up' : 'down'}
             />
           </div>
 
+          {/* ── KPI Row 2 ── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KpiCard
               icon={TrendingDown} label="Egresos totales" color="border-red-500"
@@ -170,12 +164,52 @@ export default function DashboardPage() {
               sub="unidades"
             />
             <KpiCard
-              icon={Activity} label="Promedio x venta" color="border-pink-500"
-              value={(data.totalVentas ?? 0) > 0
-                ? `Q ${(ingresos / (data.totalVentas!)).toLocaleString('es-GT', { minimumFractionDigits: 2 })}`
-                : 'Q 0.00'}
-              sub="ticket promedio"
+              icon={CalendarDays} label="Ventas de hoy" color="border-indigo-500"
+              value={`Q ${ingresosHoy.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
+              sub={`Caja hoy: Q ${cajaHoy.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
+              trend={ingresosHoy > 0 ? 'up' : 'neutral'}
             />
+          </div>
+
+          {/* ── Lo que va del día ── */}
+          <div className="glass-card rounded-3xl p-6">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-9 h-9 rounded-2xl bg-indigo-100 flex items-center justify-center">
+                <CalendarDays size={18} className="text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-foreground">Lo que va del día</h3>
+                <p className="text-xs text-muted-foreground capitalize">{fechaHoy}</p>
+              </div>
+            </div>
+
+            {ingresosHoy === 0 && egresosHoy === 0 ? (
+              <div className="flex flex-col items-center justify-center h-28 text-muted-foreground">
+                <ShoppingCart size={36} className="opacity-20 mb-2" />
+                <p className="text-sm">Aún no hay ventas registradas hoy</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-green-50 rounded-2xl p-5 flex flex-col gap-1">
+                  <p className="text-xs font-semibold text-green-700 uppercase tracking-wide">Ingresos hoy</p>
+                  <p className="text-3xl font-black text-green-700">
+                    Q {ingresosHoy.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div className="bg-red-50 rounded-2xl p-5 flex flex-col gap-1">
+                  <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">Egresos hoy</p>
+                  <p className="text-3xl font-black text-red-700">
+                    Q {egresosHoy.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div className={`rounded-2xl p-5 flex flex-col gap-1 ${cajaHoy >= 0 ? 'bg-emerald-50' : 'bg-orange-50'}`}>
+                  <p className={`text-xs font-semibold uppercase tracking-wide ${cajaHoy >= 0 ? 'text-emerald-700' : 'text-orange-700'}`}>Caja del día</p>
+                  <p className={`text-3xl font-black ${cajaHoy >= 0 ? 'text-emerald-700' : 'text-orange-700'}`}>
+                    Q {cajaHoy.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Ingresos vs Egresos por día ── */}
@@ -186,11 +220,11 @@ export default function DashboardPage() {
               </div>
               <div>
                 <h3 className="font-bold text-foreground">Ingresos vs Egresos</h3>
-                <p className="text-xs text-muted-foreground">Últimos 14 días</p>
+                <p className="text-xs text-muted-foreground">Últimos 14 días · en Q</p>
               </div>
             </div>
             <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={data.ventasPorDia ?? []} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart data={diasData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradIngresos" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
@@ -215,89 +249,9 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
 
-          {/* ── Top Productos + Horario pico ── */}
+          {/* ── Top Categorías + Ranking de ventas ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            {/* Top Productos Bar Chart */}
-            <div className="glass-card rounded-3xl p-6">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-9 h-9 rounded-2xl bg-violet-100 flex items-center justify-center">
-                  <BarChart2 size={18} className="text-violet-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-foreground">Top Productos</h3>
-                  <p className="text-xs text-muted-foreground">Por unidades vendidas</p>
-                </div>
-              </div>
-              {data.topProductos.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
-                  <ShoppingCart size={36} className="opacity-20 mb-2" />
-                  <p className="text-sm">Aún no hay ventas registradas</p>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart
-                    layout="vertical"
-                    data={data.topProductos.slice(0, 6).map(p => ({
-                      nombre: p.nombre.length > 18 ? p.nombre.slice(0, 18) + '…' : p.nombre,
-                      cantidad: p.cantidad,
-                      total: p.total,
-                    }))}
-                    margin={{ top: 0, right: 16, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-                    <YAxis dataKey="nombre" type="category" tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} width={110} />
-                    <Tooltip content={<CustomTooltipCount />} />
-                    <Bar dataKey="cantidad" name="Unidades" radius={[0, 6, 6, 0]}>
-                      {data.topProductos.slice(0, 6).map((_, i) => (
-                        <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-
-            {/* Ventas por hora */}
-            <div className="glass-card rounded-3xl p-6">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-9 h-9 rounded-2xl bg-blue-100 flex items-center justify-center">
-                  <Activity size={18} className="text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-foreground">Horario pico</h3>
-                  <p className="text-xs text-muted-foreground">Ventas por hora del día</p>
-                </div>
-              </div>
-              {(data.ventasPorHora ?? []).every(h => h.ventas === 0) ? (
-                <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
-                  <Activity size={36} className="opacity-20 mb-2" />
-                  <p className="text-sm">Sin datos de horario aún</p>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={data.ventasPorHora ?? []} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                    <XAxis dataKey="hora" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} allowDecimals={false} />
-                    <Tooltip content={<CustomTooltipCount />} />
-                    <Bar dataKey="ventas" name="Ventas" fill="#3b82f6" radius={[4, 4, 0, 0]}>
-                      {(data.ventasPorHora ?? []).map((h, i) => {
-                        const maxV = Math.max(...(data.ventasPorHora ?? []).map(x => x.ventas));
-                        return <Cell key={i} fill={h.ventas === maxV && maxV > 0 ? '#6366f1' : '#93c5fd'} />;
-                      })}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
-
-          {/* ── Top Categorías + Tabla top productos ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            {/* Top Categorías */}
             {(data.topCategorias?.length ?? 0) > 0 && (
               <div className="glass-card rounded-3xl p-6">
                 <div className="flex items-center gap-3 mb-5">
@@ -332,7 +286,6 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Tabla detallada top productos */}
             {data.topProductos.length > 0 && (
               <div className="glass-card rounded-3xl p-6">
                 <div className="flex items-center gap-3 mb-5">
@@ -341,7 +294,7 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <h3 className="font-bold text-foreground">Ranking de ventas</h3>
-                    <p className="text-xs text-muted-foreground">Productos más vendidos</p>
+                    <p className="text-xs text-muted-foreground">Productos más vendidos · en Q</p>
                   </div>
                 </div>
                 <div className="space-y-2">
