@@ -78,10 +78,8 @@ export async function setupAuth(app: Express) {
     verified(null, user);
   };
 
-  // Keep track of registered strategies
   const registeredStrategies = new Set<string>();
 
-  // Helper function to ensure strategy exists for a domain
   const ensureStrategy = (domain: string) => {
     const strategyName = `replitauth:${domain}`;
     if (!registeredStrategies.has(strategyName)) {
@@ -113,9 +111,45 @@ export async function setupAuth(app: Express) {
   app.get("/api/callback", (req, res, next) => {
     ensureStrategy(req.hostname);
     passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
     })(req, res, next);
+  }, async (req: any, res) => {
+    // After successful Replit Auth, validate against Usuarios sheet
+    try {
+      const email = req.user?.claims?.email;
+      if (!email) {
+        req.logout(() => {});
+        return res.redirect("/acceso-denegado?razon=sin-email");
+      }
+
+      const { getUsuariosSheet } = await import("../../googleSheets");
+      const usuarios = await getUsuariosSheet();
+
+      const usuarioSheet = usuarios.find(
+        (u: any) => u.Email?.toLowerCase() === email.toLowerCase()
+      );
+
+      if (!usuarioSheet) {
+        req.logout(() => {});
+        return res.redirect("/acceso-denegado?razon=no-registrado");
+      }
+
+      const activo = String(usuarioSheet.Activo ?? "").toLowerCase();
+      if (activo !== "true" && activo !== "si" && activo !== "1" && activo !== "activo") {
+        req.logout(() => {});
+        return res.redirect("/acceso-denegado?razon=inactivo");
+      }
+
+      // Store role in session
+      (req.session as any).sheetsRol = usuarioSheet.Rol || "vendedor";
+      (req.session as any).sheetsEmail = email;
+
+      res.redirect("/");
+    } catch (err: any) {
+      console.error("Error validando usuario en Sheets:", err.message);
+      // If Sheets validation fails, still allow access (fallback)
+      res.redirect("/");
+    }
   });
 
   app.get("/api/logout", (req, res) => {

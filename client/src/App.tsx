@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import POSPage from "@/pages/pos";
 import InventoryPage from "@/pages/inventory";
@@ -11,15 +12,15 @@ import BalancesPage from "@/pages/balances";
 import DashboardPage from "@/pages/dashboard";
 import UsersPage from "@/pages/users";
 import LoginPage from "@/pages/login";
+import AccesoDenegadoPage from "@/pages/acceso-denegado";
 import { useAuth } from "@/hooks/use-auth";
-import { useEffect } from "react";
 
 function Router() {
   const { isLoading, isAuthenticated } = useAuth();
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && location !== "/login") {
+    if (!isLoading && !isAuthenticated && location !== "/login" && location !== "/acceso-denegado") {
       setLocation("/login");
     }
   }, [isAuthenticated, isLoading, location, setLocation]);
@@ -35,6 +36,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={LoginPage} />
+      <Route path="/acceso-denegado" component={AccesoDenegadoPage} />
       <Route path="/" component={DashboardPage} />
       <Route path="/pos" component={POSPage} />
       <Route path="/inventory" component={InventoryPage} />
