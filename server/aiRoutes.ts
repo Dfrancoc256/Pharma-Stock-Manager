@@ -74,11 +74,10 @@ Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instr
           detalle: p.Detalle || "",
           categoria: p.Categoria || "",
           precioUnidad: parseNum(p["Precio unidad"]),
-          stock: parseInt(p.Stock) || 0,
         }));
 
       const catalogoTexto = productos
-        .map((p: any) => `ID:${p.id} | ${p.nombre} ${p.detalle} | Cat: ${p.categoria} | Stock: ${p.stock} | Precio: Q${p.precioUnidad}`)
+        .map((p: any) => `ID:${p.id} | ${p.nombre} ${p.detalle} | Cat: ${p.categoria} | Precio: Q${p.precioUnidad}`)
         .join("\n");
 
       const completion = await openai.chat.completions.create({
@@ -91,7 +90,7 @@ Tu tarea: analizar el catálogo y devolver los productos más relevantes para la
 Responde SOLO con JSON válido en este formato:
 {
   "resultados": [
-    { "id": "P-000001", "nombre": "Nombre", "detalle": "detalle", "categoria": "cat", "precioUnidad": 10, "stock": 50, "relevancia": "Por qué este producto es relevante" }
+    { "id": "P-000001", "nombre": "Nombre", "detalle": "detalle", "categoria": "cat", "precioUnidad": 10, "relevancia": "Por qué este producto es relevante" }
   ],
   "sugerencia": "Texto breve con consejo o aclaración si aplica"
 }
@@ -130,12 +129,10 @@ Máximo 6 resultados. Si no hay coincidencias claras, devuelve los más cercanos
           detalle: p.Detalle || "",
           categoria: p.Categoria || "",
           precioUnidad: parseNum(p["Precio unidad"]),
-          stock: parseInt(p.Stock) || 0,
         }));
 
       const productoBase = productos.find((p: any) => p.id === productoId || p.nombre.toLowerCase() === (nombre || "").toLowerCase());
       const catalogoTexto = productos
-        .filter((p: any) => p.stock > 0)
         .map((p: any) => `ID:${p.id} | ${p.nombre} ${p.detalle} | Cat: ${p.categoria} | Q${p.precioUnidad}`)
         .join("\n");
 
@@ -150,10 +147,10 @@ Considera combinaciones médicas comunes (ej: antibiótico + probiótico, analg�
 Responde SOLO con JSON válido:
 {
   "complementarios": [
-    { "id": "P-000001", "nombre": "Nombre", "detalle": "detalle", "precioUnidad": 10, "stock": 50, "razon": "Por qué se recomienda junto" }
+    { "id": "P-000001", "nombre": "Nombre", "detalle": "detalle", "precioUnidad": 10, "razon": "Por qué se recomienda junto" }
   ],
   "alternativos": [
-    { "id": "P-000002", "nombre": "Nombre", "detalle": "detalle", "precioUnidad": 8, "stock": 30, "razon": "Es alternativa por..." }
+    { "id": "P-000002", "nombre": "Nombre", "detalle": "detalle", "precioUnidad": 8, "razon": "Es alternativa por..." }
   ],
   "nota": "Nota médica breve si aplica"
 }

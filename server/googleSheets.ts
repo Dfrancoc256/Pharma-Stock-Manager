@@ -122,9 +122,14 @@ export async function createProductoSheet(prod: {
 
 export async function updateStockSheet(id: string, newStock: number) {
   const rows = await leerHoja('Stock');
+  if (!rows || rows.length < 2) return;
+  const headers = rows[0];
+  const stockColIdx = headers.findIndex((h: string) => h.trim().toLowerCase() === 'stock');
+  if (stockColIdx < 0) return; // No stock column found, skip
+  const colLetter = String.fromCharCode(65 + stockColIdx);
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === id) {
-      await updateRango(`Stock!K${i + 1}`, [[newStock]]);
+      await updateRango(`Stock!${colLetter}${i + 1}`, [[newStock]]);
       return;
     }
   }

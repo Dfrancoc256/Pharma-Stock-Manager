@@ -50,7 +50,8 @@ function ProductoInfoPanel({ producto, onClose, onAdd }: {
   const [info, setInfo] = useState<ProductoInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const sinStock = (parseInt(producto.Stock) || 0) === 0;
+  const tieneColumnaStock = producto.Stock !== undefined && producto.Stock !== '';
+  const sinStock = tieneColumnaStock && (parseInt(producto.Stock) || 0) === 0;
 
   async function cargarInfo() {
     setLoading(true);
@@ -86,9 +87,11 @@ function ProductoInfoPanel({ producto, onClose, onAdd }: {
             {producto.Detalle && <p className="text-sm text-muted-foreground">{producto.Detalle}</p>}
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xl font-extrabold text-primary">Q {parseFloat(producto['Precio unidad'] || '0').toFixed(2)}</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sinStock ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
-                {sinStock ? 'Sin stock' : `${producto.Stock} en stock`}
-              </span>
+              {tieneColumnaStock && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sinStock ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                  {sinStock ? 'Sin stock' : `${producto.Stock} en stock`}
+                </span>
+              )}
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-black/5 flex-shrink-0" data-testid="button-cerrar-info">
@@ -454,8 +457,9 @@ export default function POSPage() {
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto">
                     {aiResultados.map((r) => {
                       const realProd = productos.find(p => p.ID === r.id);
-                      const stockReal = realProd ? (parseInt(realProd.Stock) || 0) : 0;
-                      const sinStock = stockReal === 0;
+                      const tieneStock = realProd && realProd.Stock !== undefined && realProd.Stock !== '';
+                      const stockVal = tieneStock ? (parseInt(realProd!.Stock) || 0) : null;
+                      const sinStock = stockVal !== null && stockVal === 0;
                       return (
                         <div key={r.id} className={`p-3 rounded-xl border ${sinStock || !realProd ? 'bg-gray-50 border-border opacity-50' : 'bg-white border-violet-200'}`}>
                           <p className="font-bold text-xs leading-tight line-clamp-2">{r.nombre}</p>
@@ -465,9 +469,11 @@ export default function POSPage() {
                             <span className="text-sm font-extrabold text-primary">
                               Q {realProd ? parseFloat(realProd['Precio unidad'] || '0').toFixed(2) : (r.precioUnidad || 0)}
                             </span>
-                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded-lg ${sinStock ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
-                              {sinStock ? 'Sin stock' : `${stockReal}`}
-                            </span>
+                            {tieneStock && (
+                              <span className={`text-xs font-medium px-1.5 py-0.5 rounded-lg ${sinStock ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                                {sinStock ? 'Sin stock' : `${stockVal}`}
+                              </span>
+                            )}
                           </div>
                           {!sinStock && realProd && (
                             <div className="flex gap-1 mt-2">
@@ -507,7 +513,8 @@ export default function POSPage() {
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 pb-4">
                 {filtered.map(p => {
-                  const sinStock = (parseInt(p.Stock) || 0) === 0;
+                  const tieneStock = p.Stock !== undefined && p.Stock !== '';
+                  const sinStock = tieneStock && (parseInt(p.Stock) || 0) === 0;
                   return (
                     <div
                       key={p.ID}
@@ -526,9 +533,11 @@ export default function POSPage() {
                         {p.Casa && <div className="text-xs text-muted-foreground">{p.Casa} · {p.Categoria}</div>}
                         <div className="mt-auto pt-2 flex items-center justify-between w-full">
                           <span className="text-lg font-extrabold text-primary">Q {parseFloat(p['Precio unidad'] || '0').toFixed(2)}</span>
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-lg ${sinStock ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                            {p.Stock || 0}
-                          </span>
+                          {tieneStock && (
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-lg ${sinStock ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                              {p.Stock}
+                            </span>
+                          )}
                         </div>
                       </button>
 

@@ -44,27 +44,22 @@ export function registerSheetsRoutes(app: Express) {
     try {
       const { id } = req.params;
       const rows = await leerHoja('Stock');
+      const headers = rows[0] || [];
+      const colIdx = (name: string) => headers.findIndex((h: string) => h.trim().toLowerCase() === name.toLowerCase());
+
       for (let i = 1; i < rows.length; i++) {
         if (rows[i][0] === id) {
+          const row = [...rows[i]];
           const body = req.body;
-          const updated = [
-            id,
-            body.nombre ?? rows[i][1],
-            body.detalle ?? rows[i][2],
-            body.casa ?? rows[i][3],
-            body.categoria ?? rows[i][4],
-            body.precioCompra ?? rows[i][5],
-            body.precioUnidad ?? rows[i][6],
-            body.precioBlister ?? rows[i][7],
-            body.precioCaja ?? rows[i][8],
-            body.posicion ?? rows[i][9],
-            body.stock ?? rows[i][10],
-            body.drogueria ?? rows[i][11],
-            body.unidadesBlister ?? rows[i][12],
-            body.unidadesCaja ?? rows[i][13],
-          ];
+          const set = (name: string, val: any) => { const idx = colIdx(name); if (idx >= 0 && val !== undefined) row[idx] = val; };
+          set('Nombre', body.nombre); set('Detalle', body.detalle); set('Casa', body.casa);
+          set('Categoria', body.categoria); set('Precio compra', body.precioCompra);
+          set('Precio unidad', body.precioUnidad); set('Precio blister', body.precioBlister);
+          set('precio caja', body.precioCaja); set('posicion', body.posicion);
+          set('stock', body.stock); set('drogueria', body.drogueria);
+          set('Unidades blister', body.unidadesBlister); set('Unidades caja', body.unidadesCaja);
           const { updateRango } = await import('./googleSheets');
-          await updateRango(`Stock!A${i + 1}`, [updated]);
+          await updateRango(`Stock!A${i + 1}`, [row]);
           return res.json({ message: 'Updated', id });
         }
       }
@@ -123,6 +118,10 @@ export function registerSheetsRoutes(app: Express) {
 
       // Add detail rows and update stock
       const stockRows = await leerHoja('Stock');
+      const stockHeaders = stockRows[0] || [];
+      const stockColIdx = stockHeaders.findIndex((h: string) => h.trim().toLowerCase() === 'stock');
+      const stockColLetter = stockColIdx >= 0 ? String.fromCharCode(65 + stockColIdx) : null;
+
       for (const item of items) {
         const subtotal = (parseFloat(item.precioUnitario) * parseInt(item.cantidad)).toFixed(2);
         const utilidad = (parseFloat(item.precioUnitario) - parseFloat(item.costoUnitario || '0')).toFixed(2);
@@ -132,15 +131,17 @@ export function registerSheetsRoutes(app: Express) {
           item.costoUnitario || '0', utilidad
         ]);
 
-        // Update stock in Sheets
-        for (let i = 1; i < stockRows.length; i++) {
-          if (stockRows[i][0] === item.productoId.toString()) {
-            const currentStock = parseInt(stockRows[i][10]) || 0;
-            const newStock = Math.max(0, currentStock - parseInt(item.cantidad));
-            const { updateRango } = await import('./googleSheets');
-            await updateRango(`Stock!K${i + 1}`, [[newStock]]);
-            stockRows[i][10] = newStock.toString();
-            break;
+        // Update stock in Sheets (only if stock column exists)
+        if (stockColLetter) {
+          for (let i = 1; i < stockRows.length; i++) {
+            if (stockRows[i][0] === item.productoId.toString()) {
+              const currentStock = parseInt(stockRows[i][stockColIdx]) || 0;
+              const newStock = Math.max(0, currentStock - parseInt(item.cantidad));
+              const { updateRango } = await import('./googleSheets');
+              await updateRango(`Stock!${stockColLetter}${i + 1}`, [[newStock]]);
+              stockRows[i][stockColIdx] = newStock.toString();
+              break;
+            }
           }
         }
       }
@@ -261,11 +262,17 @@ export function registerSheetsRoutes(app: Express) {
         leerHoja('Detalle_Venta'),
       ]);
 
-      // Stock stats
+      // Stock stats - find stock column by header
+      const stockHeaders = stockRows[0] || [];
+      const stockColIdx = stockHeaders.findIndex((h: string) => h.trim().toLowerCase() === 'stock');
       const productos = stockRows.slice(1).filter(r => r[0] && r[0] !== '');
       const totalProductos = productos.length;
-      const existenciaTotal = productos.reduce((acc, r) => acc + (parseInt(r[10]) || 0), 0);
-      const bajosStock = productos.filter(r => (parseInt(r[10]) || 0) < 5).length;
+      const existenciaTotal = stockColIdx >= 0
+        ? productos.reduce((acc, r) => acc + (parseInt(r[stockColIdx]) || 0), 0)
+        : 0;
+      const bajosStock = stockColIdx >= 0
+        ? productos.filter(r => (parseInt(r[stockColIdx]) || 0) < 5).length
+        : 0;
 
       // Movimientos stats
       const movs = movimientosRows.slice(1).filter(r => r[0]);
