@@ -235,8 +235,8 @@ export default function POSPage() {
   // Producto info panel
   const [infoProducto, setInfoProducto] = useState<Producto | null>(null);
 
-  // Buscador IA (único buscador)
-  const [aiQuery, setAIQuery] = useState('');
+  // Buscador: texto local + resultados IA al presionar el botón
+  const [search, setSearch] = useState('');
   const [aiLoading, setAILoading] = useState(false);
   const [aiResultados, setAIResultados] = useState<AIResultado[] | null>(null);
   const [aiSugerencia, setAISugerencia] = useState('');
@@ -288,13 +288,28 @@ export default function POSPage() {
     }
   });
 
-  // Productos visibles: todos si no hay búsqueda, resultados IA si hay búsqueda
+  // Filtro local instantáneo mientras se escribe
+  const localFiltered = useMemo(() => {
+    const base = productos.filter(p => p.ID && p.Nombre);
+    if (!search.trim()) return base;
+    const q = search.toLowerCase();
+    return base.filter(p =>
+      p.Nombre.toLowerCase().includes(q) ||
+      (p.Detalle || '').toLowerCase().includes(q) ||
+      (p.Casa || '').toLowerCase().includes(q) ||
+      (p.Categoria || '').toLowerCase().includes(q)
+    );
+  }, [search, productos]);
+
+  // Productos visibles: IA si hay resultados, local si hay texto, todos si no hay nada
   const displayedProducts = useMemo(() => {
-    if (aiResultados === null) return productos.filter(p => p.ID && p.Nombre);
-    return aiResultados
-      .map(r => ({ result: r, producto: productos.find(p => p.ID === r.id) }))
-      .filter(x => x.producto) as { result: AIResultado; producto: Producto }[];
-  }, [aiResultados, productos]);
+    if (aiResultados !== null) {
+      return aiResultados
+        .map(r => ({ result: r, producto: productos.find(p => p.ID === r.id) }))
+        .filter(x => x.producto) as { result: AIResultado; producto: Producto }[];
+    }
+    return localFiltered;
+  }, [aiResultados, localFiltered, productos]);
 
   const cartTotal = useMemo(() => cart.reduce((acc, item) => acc + getPrecio(item.producto, item.tipoPrecio) * item.cantidad, 0), [cart]);
 
@@ -351,13 +366,13 @@ export default function POSPage() {
 
   async function handleAISearch(e: React.FormEvent) {
     e.preventDefault();
-    if (!aiQuery.trim()) return;
+    if (!search.trim()) return;
     setAILoading(true);
     setAIError('');
     setAIResultados(null);
     setAISugerencia('');
     try {
-      const res = await apiRequest("POST", "/api/ai/buscar", { query: aiQuery.trim() });
+      const res = await apiRequest("POST", "/api/ai/buscar", { query: search.trim() });
       const data = await res.json();
       setAIResultados(data.resultados || []);
       setAISugerencia(data.sugerencia || '');
@@ -369,7 +384,7 @@ export default function POSPage() {
   }
 
   function clearSearch() {
-    setAIQuery('');
+    setSearch('');
     setAIResultados(null);
     setAISugerencia('');
     setAIError('');
@@ -380,20 +395,20 @@ export default function POSPage() {
       <div className="flex gap-6 h-[calc(100vh-4rem)]">
         {/* Products Panel */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Buscador único con IA */}
+          {/* Buscador: local mientras escribe, IA al presionar botón */}
           <form onSubmit={handleAISearch} className="mb-3 flex gap-2">
             <div className="relative flex-1">
-              <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 text-violet-400" size={17} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={17} />
               <input
                 type="text"
-                placeholder='Buscar por nombre, síntoma o medicamento...'
+                placeholder='Buscar por nombre, detalle, categoría...'
                 className="input-field pl-10 pr-10"
-                value={aiQuery}
-                onChange={e => setAIQuery(e.target.value)}
+                value={search}
+                onChange={e => { setSearch(e.target.value); setAIResultados(null); setAISugerencia(''); setAIError(''); }}
                 data-testid="input-search-pos"
                 autoFocus
               />
-              {aiQuery && (
+              {search && (
                 <button
                   type="button"
                   onClick={clearSearch}
@@ -406,16 +421,17 @@ export default function POSPage() {
             </div>
             <button
               type="submit"
-              disabled={aiLoading || !aiQuery.trim()}
-              className="flex items-center gap-2 px-5 py-2 rounded-2xl bg-gradient-to-r from-violet-500 to-primary text-white font-semibold text-sm shadow-lg shadow-violet-500/20 interactive-btn disabled:opacity-50"
+              disabled={aiLoading || !search.trim()}
+              className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-violet-500 to-primary text-white font-semibold text-sm shadow-lg shadow-violet-500/20 interactive-btn disabled:opacity-50 whitespace-nowrap"
               data-testid="button-buscar-ia-pos"
+              title="Búsqueda inteligente con IA"
             >
-              {aiLoading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
-              {aiLoading ? 'Buscando...' : 'Buscar'}
+              {aiLoading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+              {aiLoading ? 'Buscando...' : 'Buscar con IA'}
             </button>
           </form>
 
-          {/* Sugerencia / error debajo del buscador */}
+          {/* Estado debajo del buscador */}
           {aiSugerencia && (
             <div className="mb-2 flex items-start gap-2 px-3 py-2 bg-violet-50 border border-violet-200 rounded-xl text-xs text-violet-800">
               <Sparkles size={12} className="mt-0.5 flex-shrink-0" /> {aiSugerencia}
@@ -424,9 +440,11 @@ export default function POSPage() {
           {aiError && (
             <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{aiError}</div>
           )}
-          {aiResultados !== null && (
-            <div className="mb-2 text-xs text-muted-foreground px-1">
-              {aiResultados.length} resultado(s) para "{aiQuery}" ·{' '}
+          {aiResultados !== null && !aiError && (
+            <div className="mb-2 text-xs text-muted-foreground px-1 flex items-center gap-2">
+              <Sparkles size={11} className="text-violet-500" />
+              <span>{aiResultados.length} resultado(s) IA para "{search}"</span>
+              <span>·</span>
               <button onClick={clearSearch} className="text-violet-600 underline">Ver todos</button>
             </div>
           )}
@@ -442,10 +460,8 @@ export default function POSPage() {
             ) : displayedProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
                 <PackageSearch size={64} className="opacity-20" />
-                <p>No se encontraron productos</p>
-                {aiResultados !== null && (
-                  <button onClick={clearSearch} className="text-sm text-violet-600 underline">Ver todos los productos</button>
-                )}
+                <p>No se encontraron productos para "{search}"</p>
+                <button onClick={clearSearch} className="text-sm text-violet-600 underline">Ver todos los productos</button>
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 pb-4">

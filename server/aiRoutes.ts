@@ -73,7 +73,7 @@ Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instr
 
     try {
       const stock = await getStock();
-      const productos = stock
+      const todos = stock
         .filter((p: any) => p.ID && p.Nombre)
         .map((p: any) => ({
           id: p.ID,
@@ -83,7 +83,20 @@ Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instr
           precioUnidad: parseNum(p["Precio unidad"]),
         }));
 
-      const catalogoTexto = productos
+      // Pre-filtrar localmente para reducir tokens enviados a Groq
+      const q = query.toLowerCase();
+      const palabras = q.split(/\s+/).filter(Boolean);
+      const preFiltered = todos.filter((p: any) => {
+        const haystack = `${p.nombre} ${p.detalle} ${p.categoria}`.toLowerCase();
+        return palabras.some((w: string) => haystack.includes(w));
+      });
+
+      // Si hay pre-filtrados usar esos, sino usar primeros 40 del catálogo
+      const candidatos = preFiltered.length > 0
+        ? preFiltered.slice(0, 60)
+        : todos.slice(0, 40);
+
+      const catalogoTexto = candidatos
         .map((p: any) => `ID:${p.id} | ${p.nombre} ${p.detalle} | Cat: ${p.categoria} | Precio: Q${p.precioUnidad}`)
         .join("\n");
 
