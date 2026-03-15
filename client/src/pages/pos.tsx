@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import {
@@ -223,7 +223,6 @@ function ProductoInfoPanel({ producto, onClose, onAdd }: {
 
 export default function POSPage() {
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [tipo, setTipo] = useState<'contado' | 'fiado'>('contado');
@@ -236,14 +235,12 @@ export default function POSPage() {
   // Producto info panel
   const [infoProducto, setInfoProducto] = useState<Producto | null>(null);
 
-  // AI search panel
-  const [showAI, setShowAI] = useState(false);
+  // Buscador IA (único buscador)
   const [aiQuery, setAIQuery] = useState('');
   const [aiLoading, setAILoading] = useState(false);
-  const [aiResultados, setAIResultados] = useState<AIResultado[]>([]);
+  const [aiResultados, setAIResultados] = useState<AIResultado[] | null>(null);
   const [aiSugerencia, setAISugerencia] = useState('');
   const [aiError, setAIError] = useState('');
-  const aiInputRef = useRef<HTMLInputElement>(null);
 
   const { data: productos = [], isLoading } = useQuery<Producto[]>({
     queryKey: ['/api/sheets/stock'],
@@ -291,12 +288,13 @@ export default function POSPage() {
     }
   });
 
-  const filtered = productos.filter(p => p.ID && p.Nombre && (
-    p.Nombre.toLowerCase().includes(search.toLowerCase()) ||
-    (p.Detalle || '').toLowerCase().includes(search.toLowerCase()) ||
-    (p.Casa || '').toLowerCase().includes(search.toLowerCase()) ||
-    (p.Categoria || '').toLowerCase().includes(search.toLowerCase())
-  ));
+  // Productos visibles: todos si no hay búsqueda, resultados IA si hay búsqueda
+  const displayedProducts = useMemo(() => {
+    if (aiResultados === null) return productos.filter(p => p.ID && p.Nombre);
+    return aiResultados
+      .map(r => ({ result: r, producto: productos.find(p => p.ID === r.id) }))
+      .filter(x => x.producto) as { result: AIResultado; producto: Producto }[];
+  }, [aiResultados, productos]);
 
   const cartTotal = useMemo(() => cart.reduce((acc, item) => acc + getPrecio(item.producto, item.tipoPrecio) * item.cantidad, 0), [cart]);
 
@@ -356,7 +354,7 @@ export default function POSPage() {
     if (!aiQuery.trim()) return;
     setAILoading(true);
     setAIError('');
-    setAIResultados([]);
+    setAIResultados(null);
     setAISugerencia('');
     try {
       const res = await apiRequest("POST", "/api/ai/buscar", { query: aiQuery.trim() });
@@ -370,13 +368,11 @@ export default function POSPage() {
     }
   }
 
-  function openAI() {
-    setShowAI(true);
+  function clearSearch() {
     setAIQuery('');
-    setAIResultados([]);
+    setAIResultados(null);
     setAISugerencia('');
     setAIError('');
-    setTimeout(() => aiInputRef.current?.focus(), 100);
   }
 
   return (
@@ -384,135 +380,82 @@ export default function POSPage() {
       <div className="flex gap-6 h-[calc(100vh-4rem)]">
         {/* Products Panel */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+          {/* Buscador único con IA */}
+          <form onSubmit={handleAISearch} className="mb-3 flex gap-2">
+            <div className="relative flex-1">
+              <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 text-violet-400" size={17} />
               <input
                 type="text"
-                placeholder="Buscar por nombre, detalle, casa, categoría..."
-                className="input-field pl-10 pr-12"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
+                placeholder='Buscar por nombre, síntoma o medicamento...'
+                className="input-field pl-10 pr-10"
+                value={aiQuery}
+                onChange={e => setAIQuery(e.target.value)}
                 data-testid="input-search-pos"
+                autoFocus
               />
-              <button
-                onClick={openAI}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-xl text-muted-foreground hover:text-violet-600 hover:bg-violet-50 transition-colors"
-                title="Buscar por síntoma con IA"
-                data-testid="button-buscar-ia-pos"
-              >
-                <Sparkles size={17} className={showAI ? 'text-violet-600' : ''} />
-              </button>
+              {aiQuery && (
+                <button
+                  type="button"
+                  onClick={clearSearch}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  data-testid="button-clear-search"
+                >
+                  <X size={15} />
+                </button>
+              )}
             </div>
-          </div>
+            <button
+              type="submit"
+              disabled={aiLoading || !aiQuery.trim()}
+              className="flex items-center gap-2 px-5 py-2 rounded-2xl bg-gradient-to-r from-violet-500 to-primary text-white font-semibold text-sm shadow-lg shadow-violet-500/20 interactive-btn disabled:opacity-50"
+              data-testid="button-buscar-ia-pos"
+            >
+              {aiLoading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+              {aiLoading ? 'Buscando...' : 'Buscar'}
+            </button>
+          </form>
 
-          {/* AI Panel */}
-          {showAI && (
-            <div className="mb-4 bg-gradient-to-br from-violet-50 to-primary/5 border border-violet-200 rounded-2xl overflow-hidden">
-              <div className="flex items-center justify-between px-4 pt-4 pb-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={16} className="text-violet-600" />
-                  <span className="font-semibold text-sm text-violet-700">Busca por síntoma o medicamento</span>
-                </div>
-                <button
-                  onClick={() => { setShowAI(false); setAIResultados([]); setAISugerencia(''); setAIError(''); }}
-                  className="p-1 text-muted-foreground hover:text-foreground rounded-lg"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <form onSubmit={handleAISearch} className="flex gap-2 px-4 pb-3">
-                <input
-                  ref={aiInputRef}
-                  value={aiQuery}
-                  onChange={e => setAIQuery(e.target.value)}
-                  placeholder='ej: "gripe y fiebre", "dolor de estómago", "paracetamol"...'
-                  className="flex-1 h-10 rounded-xl border border-violet-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
-                  data-testid="input-ai-query"
-                />
-                <button
-                  type="submit"
-                  disabled={aiLoading || !aiQuery.trim()}
-                  className="flex items-center gap-1.5 px-4 h-10 rounded-xl bg-violet-600 text-white font-semibold text-sm disabled:opacity-50 interactive-btn"
-                >
-                  {aiLoading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
-                  {aiLoading ? 'Buscando...' : 'Buscar'}
-                </button>
-              </form>
-
-              {aiError && (
-                <div className="mx-4 mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{aiError}</div>
-              )}
-
-              {aiSugerencia && (
-                <div className="mx-4 mb-2 flex items-start gap-2 p-3 bg-violet-50 border border-violet-200 rounded-xl text-xs text-violet-800">
-                  <Info size={13} className="mt-0.5 flex-shrink-0" /> {aiSugerencia}
-                </div>
-              )}
-
-              {aiResultados.length > 0 && (
-                <div className="px-4 pb-4">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">{aiResultados.length} resultado(s) en tu inventario</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto">
-                    {aiResultados.map((r) => {
-                      const realProd = productos.find(p => p.ID === r.id);
-                      const tieneStock = realProd && realProd.Stock !== undefined && realProd.Stock !== '';
-                      const stockVal = tieneStock ? (parseInt(realProd!.Stock) || 0) : null;
-                      const sinStock = stockVal !== null && stockVal === 0;
-                      return (
-                        <div key={r.id} className={`p-3 rounded-xl border ${sinStock || !realProd ? 'bg-gray-50 border-border opacity-50' : 'bg-white border-violet-200'}`}>
-                          <p className="font-bold text-xs leading-tight line-clamp-2">{r.nombre}</p>
-                          {r.detalle && <p className="text-xs text-muted-foreground line-clamp-1">{r.detalle}</p>}
-                          {r.relevancia && <p className="text-xs text-violet-600 mt-1 italic line-clamp-2">{r.relevancia}</p>}
-                          <div className="flex items-center justify-between mt-2">
-                            <span className="text-sm font-extrabold text-primary">
-                              Q {realProd ? parseFloat(realProd['Precio unidad'] || '0').toFixed(2) : (r.precioUnidad || 0)}
-                            </span>
-                            {tieneStock && (
-                              <span className={`text-xs font-medium px-1.5 py-0.5 rounded-lg ${sinStock ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
-                                {sinStock ? 'Sin stock' : `${stockVal}`}
-                              </span>
-                            )}
-                          </div>
-                          {!sinStock && realProd && (
-                            <div className="flex gap-1 mt-2">
-                              <button
-                                onClick={() => addToCart(realProd)}
-                                className="flex-1 text-xs font-semibold bg-primary/10 text-primary rounded-lg py-1 interactive-btn"
-                                data-testid={`button-ai-add-${r.id}`}
-                              >
-                                <Plus size={11} className="inline mr-0.5" /> Agregar
-                              </button>
-                              <button
-                                onClick={() => setInfoProducto(realProd)}
-                                className="px-2 text-xs font-semibold bg-violet-100 text-violet-700 rounded-lg py-1 interactive-btn"
-                                data-testid={`button-ai-info-${r.id}`}
-                              >
-                                <Info size={11} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+          {/* Sugerencia / error debajo del buscador */}
+          {aiSugerencia && (
+            <div className="mb-2 flex items-start gap-2 px-3 py-2 bg-violet-50 border border-violet-200 rounded-xl text-xs text-violet-800">
+              <Sparkles size={12} className="mt-0.5 flex-shrink-0" /> {aiSugerencia}
+            </div>
+          )}
+          {aiError && (
+            <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{aiError}</div>
+          )}
+          {aiResultados !== null && (
+            <div className="mb-2 text-xs text-muted-foreground px-1">
+              {aiResultados.length} resultado(s) para "{aiQuery}" ·{' '}
+              <button onClick={clearSearch} className="text-violet-600 underline">Ver todos</button>
             </div>
           )}
 
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center h-full text-muted-foreground">Cargando desde Google Sheets...</div>
-            ) : filtered.length === 0 ? (
+            ) : aiLoading ? (
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
+                <Loader2 size={40} className="opacity-40 animate-spin text-violet-500" />
+                <p className="text-sm">Buscando con IA...</p>
+              </div>
+            ) : displayedProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
                 <PackageSearch size={64} className="opacity-20" />
                 <p>No se encontraron productos</p>
+                {aiResultados !== null && (
+                  <button onClick={clearSearch} className="text-sm text-violet-600 underline">Ver todos los productos</button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 pb-4">
-                {filtered.map(p => {
+                {(aiResultados === null
+                  ? (displayedProducts as Producto[])
+                  : (displayedProducts as { result: AIResultado; producto: Producto }[]).map(x => x.producto)
+                ).map((p, idx) => {
+                  const relevancia = aiResultados !== null
+                    ? (displayedProducts as { result: AIResultado; producto: Producto }[])[idx]?.result?.relevancia
+                    : undefined;
                   const tieneStock = p.Stock !== undefined && p.Stock !== '';
                   const sinStock = tieneStock && (parseInt(p.Stock) || 0) === 0;
                   return (
@@ -520,7 +463,6 @@ export default function POSPage() {
                       key={p.ID}
                       className={`relative group bg-white rounded-2xl border border-border/60 flex flex-col gap-1 overflow-hidden ${sinStock ? 'opacity-40' : 'hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10'}`}
                     >
-                      {/* Área principal clickeable para agregar */}
                       <button
                         onClick={() => !sinStock && addToCart(p)}
                         disabled={sinStock}
@@ -530,6 +472,9 @@ export default function POSPage() {
                         <div className="text-xs text-muted-foreground font-mono bg-accent/50 w-max px-2 py-0.5 rounded-md">{p.ID}</div>
                         <div className="font-bold text-foreground line-clamp-2 leading-tight text-sm group-hover:text-primary">{p.Nombre}</div>
                         {p.Detalle && <div className="text-xs text-muted-foreground line-clamp-1">{p.Detalle}</div>}
+                        {relevancia && (
+                          <div className="text-xs text-violet-600 italic line-clamp-2">{relevancia}</div>
+                        )}
                         {p.Casa && <div className="text-xs text-muted-foreground">{p.Casa} · {p.Categoria}</div>}
                         <div className="mt-auto pt-2 flex items-center justify-between w-full">
                           <span className="text-lg font-extrabold text-primary">Q {parseFloat(p['Precio unidad'] || '0').toFixed(2)}</span>
@@ -541,7 +486,6 @@ export default function POSPage() {
                         </div>
                       </button>
 
-                      {/* Botón info IA */}
                       <button
                         onClick={() => setInfoProducto(p)}
                         className="absolute top-2 right-2 p-1.5 rounded-xl bg-white/80 border border-border/40 text-muted-foreground hover:text-violet-600 hover:border-violet-300 hover:bg-violet-50 opacity-0 group-hover:opacity-100 transition-all shadow-sm"
