@@ -14,6 +14,51 @@ function parseNum(val: string): number {
 
 export function registerAIRoutes(app: Express) {
 
+  // POST /api/ai/info-producto - Dosificación y recomendaciones de un producto específico
+  app.post("/api/ai/info-producto", async (req, res) => {
+    const { id, nombre, detalle, categoria } = req.body;
+    if (!nombre) return res.status(400).json({ message: "nombre requerido" });
+
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `Eres el asistente farmacéutico de una farmacia en Guatemala. 
+Un cliente pregunta sobre un medicamento o producto.
+Responde SOLO con JSON válido en este formato (sin markdown, sin explicación):
+{
+  "dosificacion": "Instrucción clara de cuánto tomar y cada cuánto (ej: 1 tableta cada 8 horas, máximo 3 al día)",
+  "duracionTratamiento": "cuántos días se toma normalmente (ej: 5 a 7 días, o 'según indicación médica')",
+  "indicaciones": ["para qué sirve punto 1", "para qué sirve punto 2"],
+  "contraindicaciones": ["no tomar si... punto 1"],
+  "recomendaciones": ["recomendación práctica 1", "recomendación práctica 2"],
+  "consejo": "Consejo breve y práctico para el paciente",
+  "requierReceta": true
+}
+Sé preciso, práctico y usa lenguaje sencillo para Guatemala.
+Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instrucciones de uso.`
+          },
+          {
+            role: "user",
+            content: `Producto: ${nombre}${detalle ? ` ${detalle}` : ""}${categoria ? ` (Categoría: ${categoria})` : ""}`
+          }
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 600,
+      });
+
+      const content = completion.choices[0]?.message?.content || "{}";
+      const parsed = JSON.parse(content);
+      res.json({ ...parsed, producto: { id, nombre, detalle, categoria } });
+    } catch (err: any) {
+      console.error("AI info-producto error:", err.message);
+      res.status(500).json({ message: "Error IA: " + err.message });
+    }
+  });
+
+
   // POST /api/ai/buscar - Búsqueda inteligente por síntoma o nombre
   app.post("/api/ai/buscar", async (req, res) => {
     const { query } = req.body;

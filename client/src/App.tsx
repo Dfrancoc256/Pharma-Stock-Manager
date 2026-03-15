@@ -12,7 +12,6 @@ import BalancesPage from "@/pages/balances";
 import DashboardPage from "@/pages/dashboard";
 import UsersPage from "@/pages/users";
 import LoginPage from "@/pages/login";
-import AsistenteIAPage from "@/pages/asistente-ia";
 import { useAuth } from "@/hooks/use-auth";
 
 function AppRouter() {
@@ -45,7 +44,6 @@ function AppRouter() {
       <Route path="/fiadores" component={FiadoresPage} />
       <Route path="/balances" component={BalancesPage} />
       <Route path="/users" component={UsersPage} />
-      <Route path="/ia" component={AsistenteIAPage} />
       <Route component={NotFound} />
     </Switch>
   );

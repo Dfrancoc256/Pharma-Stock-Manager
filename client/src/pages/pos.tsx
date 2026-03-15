@@ -1,9 +1,10 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import {
   Search, Plus, Minus, Trash2, ReceiptText, UserPlus,
-  ShoppingCart, PackageSearch, Sparkles, X, Loader2, Info
+  ShoppingCart, PackageSearch, Sparkles, X, Loader2, Info,
+  Clock, AlertTriangle, CheckCircle, BookOpen, ChevronRight
 } from "lucide-react";
 import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
@@ -25,10 +26,196 @@ type AIResultado = {
   categoria?: string; precioUnidad?: number; stock?: number; relevancia?: string;
 };
 
+type ProductoInfo = {
+  dosificacion: string;
+  duracionTratamiento: string;
+  indicaciones: string[];
+  contraindicaciones: string[];
+  recomendaciones: string[];
+  consejo: string;
+  requierReceta: boolean;
+  producto: { id: string; nombre: string; detalle: string; categoria: string };
+};
+
 function getPrecio(p: Producto, tipo: TipoPrecio): number {
   if (tipo === 'blister') return parseFloat(p['Precio blister'] || '0');
   if (tipo === 'caja') return parseFloat(p['Precio caja'] || '0');
   return parseFloat(p['Precio unidad'] || '0');
+}
+
+// Panel de información de producto con dosificación IA
+function ProductoInfoPanel({ producto, onClose, onAdd }: {
+  producto: Producto; onClose: () => void; onAdd: () => void;
+}) {
+  const [info, setInfo] = useState<ProductoInfo | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const sinStock = (parseInt(producto.Stock) || 0) === 0;
+
+  async function cargarInfo() {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await apiRequest("POST", "/api/ai/info-producto", {
+        id: producto.ID,
+        nombre: producto.Nombre,
+        detalle: producto.Detalle,
+        categoria: producto.Categoria,
+      });
+      const data = await res.json();
+      setInfo(data);
+    } catch {
+      setError('No se pudo cargar la información. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Auto-cargar al abrir
+  useEffect(() => { cargarInfo(); }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4">
+      <div className="bg-white w-full md:max-w-lg rounded-t-3xl md:rounded-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 md:zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+        
+        {/* Header */}
+        <div className="flex items-start gap-3 p-5 border-b bg-gradient-to-r from-violet-50 to-primary/5">
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-mono text-muted-foreground">{producto.ID}</div>
+            <h2 className="font-bold text-lg leading-tight">{producto.Nombre}</h2>
+            {producto.Detalle && <p className="text-sm text-muted-foreground">{producto.Detalle}</p>}
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xl font-extrabold text-primary">Q {parseFloat(producto['Precio unidad'] || '0').toFixed(2)}</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sinStock ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                {sinStock ? 'Sin stock' : `${producto.Stock} en stock`}
+              </span>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-black/5 flex-shrink-0" data-testid="button-cerrar-info">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          {loading && (
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground">
+              <Loader2 size={28} className="animate-spin text-violet-500" />
+              <p className="text-sm">Consultando información farmacéutica...</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="m-4 p-4 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-700 flex items-center gap-2">
+              <AlertTriangle size={16} /> {error}
+              <button onClick={cargarInfo} className="ml-auto text-red-600 underline text-xs">Reintentar</button>
+            </div>
+          )}
+
+          {info && !loading && (
+            <div className="p-5 space-y-4">
+              
+              {/* Dosificación - destacado */}
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock size={16} className="text-blue-600" />
+                  <span className="font-bold text-sm text-blue-800">Dosificación</span>
+                </div>
+                <p className="text-blue-900 font-semibold text-sm">{info.dosificacion}</p>
+                {info.duracionTratamiento && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Duración: {info.duracionTratamiento}
+                  </p>
+                )}
+              </div>
+
+              {/* Indicaciones */}
+              {info.indicaciones?.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <BookOpen size={15} className="text-green-600" />
+                    <span className="font-semibold text-sm">Para qué sirve</span>
+                  </div>
+                  <div className="space-y-1">
+                    {info.indicaciones.map((ind, i) => (
+                      <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <CheckCircle size={14} className="text-green-500 mt-0.5 flex-shrink-0" />
+                        {ind}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recomendaciones */}
+              {info.recomendaciones?.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <ChevronRight size={15} className="text-primary" />
+                    <span className="font-semibold text-sm">Recomendaciones</span>
+                  </div>
+                  <div className="space-y-1">
+                    {info.recomendaciones.map((rec, i) => (
+                      <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/40 rounded-xl px-3 py-2">
+                        <span className="text-primary font-bold flex-shrink-0">•</span>
+                        {rec}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Contraindicaciones */}
+              {info.contraindicaciones?.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle size={15} className="text-orange-500" />
+                    <span className="font-semibold text-sm text-orange-700">Precauciones</span>
+                  </div>
+                  <div className="space-y-1">
+                    {info.contraindicaciones.map((c, i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs text-orange-800 bg-orange-50 rounded-xl px-3 py-2">
+                        <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
+                        {c}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Consejo */}
+              {info.consejo && (
+                <div className="bg-violet-50 border border-violet-200 rounded-2xl p-3 flex items-start gap-2">
+                  <Sparkles size={15} className="text-violet-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-violet-800">{info.consejo}</p>
+                </div>
+              )}
+
+              {/* Requiere receta */}
+              {info.requierReceta && (
+                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 flex items-center gap-2">
+                  <AlertTriangle size={13} />
+                  Este medicamento requiere receta médica
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer - botón agregar */}
+        <div className="p-4 border-t bg-white">
+          <button
+            onClick={() => { onAdd(); onClose(); }}
+            disabled={sinStock}
+            className="w-full py-3.5 rounded-2xl font-bold text-base bg-gradient-to-r from-primary to-teal-500 text-white shadow-lg shadow-primary/25 interactive-btn flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            data-testid="button-agregar-desde-info"
+          >
+            <Plus size={20} /> {sinStock ? 'Sin stock disponible' : 'Agregar al carrito'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function POSPage() {
@@ -43,7 +230,10 @@ export default function POSPage() {
   const [amountPaid, setAmountPaid] = useState('');
   const [receiptData, setReceiptData] = useState<{ items: CartItem[]; total: number; fecha: string; paid?: number; change?: number; } | null>(null);
 
-  // AI Panel state
+  // Producto info panel
+  const [infoProducto, setInfoProducto] = useState<Producto | null>(null);
+
+  // AI search panel
   const [showAI, setShowAI] = useState(false);
   const [aiQuery, setAIQuery] = useState('');
   const [aiLoading, setAILoading] = useState(false);
@@ -158,7 +348,6 @@ export default function POSPage() {
     });
   };
 
-  // IA: buscar productos desde el catálogo real de Google Sheets
   async function handleAISearch(e: React.FormEvent) {
     e.preventDefault();
     if (!aiQuery.trim()) return;
@@ -176,14 +365,6 @@ export default function POSPage() {
     } finally {
       setAILoading(false);
     }
-  }
-
-  // Al agregar desde IA: busca el producto real en el catálogo de Stock
-  function addFromAI(aiProd: AIResultado) {
-    const realProd = productos.find(p => p.ID === aiProd.id);
-    if (!realProd) return;
-    if ((parseInt(realProd.Stock) || 0) === 0) return;
-    addToCart(realProd);
   }
 
   function openAI() {
@@ -214,7 +395,7 @@ export default function POSPage() {
             </div>
             <button
               onClick={openAI}
-              className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-violet-500 to-primary text-white font-semibold text-sm shadow-lg shadow-violet-500/20 interactive-btn hover:shadow-violet-500/30 hover:shadow-xl transition-shadow"
+              className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-violet-500 to-primary text-white font-semibold text-sm shadow-lg shadow-violet-500/20 interactive-btn"
               data-testid="button-buscar-ia-pos"
             >
               <Sparkles size={16} />
@@ -222,18 +403,17 @@ export default function POSPage() {
             </button>
           </div>
 
-          {/* AI Panel (slide-in style) */}
+          {/* AI Panel */}
           {showAI && (
             <div className="mb-4 bg-gradient-to-br from-violet-50 to-primary/5 border border-violet-200 rounded-2xl overflow-hidden">
               <div className="flex items-center justify-between px-4 pt-4 pb-2">
                 <div className="flex items-center gap-2">
                   <Sparkles size={16} className="text-violet-600" />
-                  <span className="font-semibold text-sm text-violet-700">Búsqueda IA — describe el síntoma o medicamento</span>
+                  <span className="font-semibold text-sm text-violet-700">Busca por síntoma o medicamento</span>
                 </div>
                 <button
                   onClick={() => { setShowAI(false); setAIResultados([]); setAISugerencia(''); setAIError(''); }}
                   className="p-1 text-muted-foreground hover:text-foreground rounded-lg"
-                  data-testid="button-cerrar-ia"
                 >
                   <X size={16} />
                 </button>
@@ -252,7 +432,6 @@ export default function POSPage() {
                   type="submit"
                   disabled={aiLoading || !aiQuery.trim()}
                   className="flex items-center gap-1.5 px-4 h-10 rounded-xl bg-violet-600 text-white font-semibold text-sm disabled:opacity-50 interactive-btn"
-                  data-testid="button-ai-buscar-submit"
                 >
                   {aiLoading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
                   {aiLoading ? 'Buscando...' : 'Buscar'}
@@ -265,42 +444,50 @@ export default function POSPage() {
 
               {aiSugerencia && (
                 <div className="mx-4 mb-2 flex items-start gap-2 p-3 bg-violet-50 border border-violet-200 rounded-xl text-xs text-violet-800">
-                  <Info size={13} className="mt-0.5 flex-shrink-0" />
-                  {aiSugerencia}
+                  <Info size={13} className="mt-0.5 flex-shrink-0" /> {aiSugerencia}
                 </div>
               )}
 
               {aiResultados.length > 0 && (
                 <div className="px-4 pb-4">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">{aiResultados.length} resultado(s) encontrado(s) en tu inventario</p>
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">{aiResultados.length} resultado(s) en tu inventario</p>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto">
                     {aiResultados.map((r) => {
                       const realProd = productos.find(p => p.ID === r.id);
                       const stockReal = realProd ? (parseInt(realProd.Stock) || 0) : 0;
                       const sinStock = stockReal === 0;
                       return (
-                        <button
-                          key={r.id}
-                          onClick={() => { if (!sinStock && realProd) { addToCart(realProd); } }}
-                          disabled={sinStock || !realProd}
-                          className={`text-left p-3 rounded-xl border transition-all ${sinStock || !realProd ? 'bg-gray-50 border-border opacity-50 cursor-not-allowed' : 'bg-white border-violet-200 hover:border-violet-400 hover:shadow-md hover:shadow-violet-500/10 interactive-btn'}`}
-                          data-testid={`button-ai-add-${r.id}`}
-                        >
+                        <div key={r.id} className={`p-3 rounded-xl border ${sinStock || !realProd ? 'bg-gray-50 border-border opacity-50' : 'bg-white border-violet-200'}`}>
                           <p className="font-bold text-xs leading-tight line-clamp-2">{r.nombre}</p>
                           {r.detalle && <p className="text-xs text-muted-foreground line-clamp-1">{r.detalle}</p>}
                           {r.relevancia && <p className="text-xs text-violet-600 mt-1 italic line-clamp-2">{r.relevancia}</p>}
                           <div className="flex items-center justify-between mt-2">
-                            <span className="text-sm font-extrabold text-primary">Q {realProd ? parseFloat(realProd['Precio unidad'] || '0').toFixed(2) : (r.precioUnidad || 0).toFixed(2)}</span>
+                            <span className="text-sm font-extrabold text-primary">
+                              Q {realProd ? parseFloat(realProd['Precio unidad'] || '0').toFixed(2) : (r.precioUnidad || 0)}
+                            </span>
                             <span className={`text-xs font-medium px-1.5 py-0.5 rounded-lg ${sinStock ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
-                              {sinStock ? 'Sin stock' : `${stockReal} uds`}
+                              {sinStock ? 'Sin stock' : `${stockReal}`}
                             </span>
                           </div>
                           {!sinStock && realProd && (
-                            <div className="mt-1 text-xs font-semibold text-violet-600 flex items-center gap-1">
-                              <Plus size={11} /> Agregar al carrito
+                            <div className="flex gap-1 mt-2">
+                              <button
+                                onClick={() => addToCart(realProd)}
+                                className="flex-1 text-xs font-semibold bg-primary/10 text-primary rounded-lg py-1 interactive-btn"
+                                data-testid={`button-ai-add-${r.id}`}
+                              >
+                                <Plus size={11} className="inline mr-0.5" /> Agregar
+                              </button>
+                              <button
+                                onClick={() => setInfoProducto(realProd)}
+                                className="px-2 text-xs font-semibold bg-violet-100 text-violet-700 rounded-lg py-1 interactive-btn"
+                                data-testid={`button-ai-info-${r.id}`}
+                              >
+                                <Info size={11} />
+                              </button>
                             </div>
                           )}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -319,26 +506,44 @@ export default function POSPage() {
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 pb-4">
-                {filtered.map(p => (
-                  <button
-                    key={p.ID}
-                    onClick={() => addToCart(p)}
-                    disabled={(parseInt(p.Stock) || 0) === 0}
-                    className="interactive-btn text-left bg-white p-4 rounded-2xl border border-border/60 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 flex flex-col gap-1 group disabled:opacity-40 disabled:cursor-not-allowed"
-                    data-testid={`card-producto-${p.ID}`}
-                  >
-                    <div className="text-xs text-muted-foreground font-mono bg-accent/50 w-max px-2 py-0.5 rounded-md">{p.ID}</div>
-                    <div className="font-bold text-foreground line-clamp-2 leading-tight text-sm group-hover:text-primary">{p.Nombre}</div>
-                    {p.Detalle && <div className="text-xs text-muted-foreground line-clamp-1">{p.Detalle}</div>}
-                    {p.Casa && <div className="text-xs text-muted-foreground">{p.Casa} · {p.Categoria}</div>}
-                    <div className="mt-auto pt-2 flex items-center justify-between w-full">
-                      <span className="text-lg font-extrabold text-primary">Q {parseFloat(p['Precio unidad'] || '0').toFixed(2)}</span>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-lg ${(parseInt(p.Stock) || 0) < 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                        {p.Stock || 0}
-                      </span>
+                {filtered.map(p => {
+                  const sinStock = (parseInt(p.Stock) || 0) === 0;
+                  return (
+                    <div
+                      key={p.ID}
+                      className={`relative group bg-white rounded-2xl border border-border/60 flex flex-col gap-1 overflow-hidden ${sinStock ? 'opacity-40' : 'hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10'}`}
+                    >
+                      {/* Área principal clickeable para agregar */}
+                      <button
+                        onClick={() => !sinStock && addToCart(p)}
+                        disabled={sinStock}
+                        className="text-left p-4 flex flex-col gap-1 flex-1 w-full disabled:cursor-not-allowed"
+                        data-testid={`card-producto-${p.ID}`}
+                      >
+                        <div className="text-xs text-muted-foreground font-mono bg-accent/50 w-max px-2 py-0.5 rounded-md">{p.ID}</div>
+                        <div className="font-bold text-foreground line-clamp-2 leading-tight text-sm group-hover:text-primary">{p.Nombre}</div>
+                        {p.Detalle && <div className="text-xs text-muted-foreground line-clamp-1">{p.Detalle}</div>}
+                        {p.Casa && <div className="text-xs text-muted-foreground">{p.Casa} · {p.Categoria}</div>}
+                        <div className="mt-auto pt-2 flex items-center justify-between w-full">
+                          <span className="text-lg font-extrabold text-primary">Q {parseFloat(p['Precio unidad'] || '0').toFixed(2)}</span>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-lg ${sinStock ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                            {p.Stock || 0}
+                          </span>
+                        </div>
+                      </button>
+
+                      {/* Botón info IA */}
+                      <button
+                        onClick={() => setInfoProducto(p)}
+                        className="absolute top-2 right-2 p-1.5 rounded-xl bg-white/80 border border-border/40 text-muted-foreground hover:text-violet-600 hover:border-violet-300 hover:bg-violet-50 opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                        data-testid={`button-info-${p.ID}`}
+                        title="Ver dosificación y recomendaciones"
+                      >
+                        <Info size={14} />
+                      </button>
                     </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -366,7 +571,19 @@ export default function POSPage() {
                       <p className="font-bold text-xs truncate">{item.producto.Nombre}</p>
                       <p className="text-primary font-bold text-sm">Q {getPrecio(item.producto, item.tipoPrecio).toFixed(2)}</p>
                     </div>
-                    <button onClick={() => removeFromCart(item.producto.ID, item.tipoPrecio)} className="p-1 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setInfoProducto(item.producto)}
+                        className="p-1 text-violet-400 hover:bg-violet-50 hover:text-violet-600 rounded-lg"
+                        title="Ver dosificación"
+                        data-testid={`button-info-cart-${item.producto.ID}`}
+                      >
+                        <Info size={13} />
+                      </button>
+                      <button onClick={() => removeFromCart(item.producto.ID, item.tipoPrecio)} className="p-1 text-red-400 hover:bg-red-50 rounded-lg">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex gap-1 mb-2">
                     {(['unidad', 'blister', 'caja'] as TipoPrecio[]).map(t => {
@@ -409,6 +626,15 @@ export default function POSPage() {
           </div>
         </div>
       </div>
+
+      {/* Panel de info de producto (dosificación + recomendaciones) */}
+      {infoProducto && (
+        <ProductoInfoPanel
+          producto={infoProducto}
+          onClose={() => setInfoProducto(null)}
+          onAdd={() => { addToCart(infoProducto); setInfoProducto(null); }}
+        />
+      )}
 
       {/* Checkout Modal */}
       {isCheckoutOpen && (
@@ -491,7 +717,7 @@ export default function POSPage() {
         </div>
       )}
 
-      {/* Receipt (print only) */}
+      {/* Receipt */}
       {receiptData && (
         <div className="hidden print:block fixed inset-0 bg-white p-6 text-black text-sm font-mono" style={{ fontFamily: 'monospace' }}>
           <div className="text-center mb-4">
