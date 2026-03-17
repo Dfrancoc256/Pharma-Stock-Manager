@@ -40,3 +40,39 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_log_in_with_replit:2.0.0", "google-sheet:1.0.0", "javascript_openai_ai_integrations:2.0.0"]
+
+[userenv]
+
+[userenv.shared]
+GOOGLE_SPREADSHEET_ID = "1MwgmtT8b5jOUzF0rt5E_uRMgjFG1uKcgIB-P3fFQ7p8"
+GOOGLE_SERVICE_ACCOUNT_EMAIL = "farmacia-api@ornate-axiom-463202-n2.iam.gserviceaccount.com"
+GOOGLE_PRIVATE_KEY = """
+-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDHvH8zn3qWX94G
+k2lGDH4K9fXbmibzOw16/DFyswb5KCDczUEkF56LY2TmR7JV3W576A6CcQxoEduv
+V1yVET9guOMnl8hVUyPAwT1ZruGO6qorkfg4gS9q35YBlxy78Ir3vfhXDU2gAKX9
+gMUCPzD4pIaJS28wqcrODUgxLOGZmvTC1QvbB440zKZmYUMXM8YR+Uy1Y018JDuZ
+cRxjgXv4gknSCn1oWAd6Ng+HhFbFFW3vnjRB9BzAG/PHCmJMUpd/pRiftTtB4WFY
+/0LNTxEXUSguQIWKepmUTFcG+836/V9c2O6/FNIgiEZ32VWTcKCTZKjv/jpSpFad
+74qAla+/AgMBAAECggEAKq2k0m+DvqjqZKZP6sdVkVr/9zYHl5ZpKXvExxjo5wlD
+iFqVTjR7zJXm4+uy9/TyHCi4HPgx6fTS57L3leSTEcQ/yWB9znmO3KuNw+GB0ctj
+pB6zFsPH0YLH5zwWSDQ8RXaCn3s4uHUbAsFmlzXQbXieRKzpK9FEA+ZDpDpOVEcu
+wsMG3aEsxzgn1x+4JISBrran/opjU/pN8ju01m89Mj1G6Dt6Gs7DmzGkJozllfjN
+ICMFNlE3hDY3K/z0flTrdE+Dt3RiauSKt3P3t42mv9vUzXrgOBedSegtTE9Blbgi
+NmX0557qrhhdWRAAJUzMKdzLBNiuppofS8CMqzvA6QKBgQDs+Xzl18vugvsh9oe2
+y3EQDZZu73+QxXvpKCmhWl3//CSVPlNo7Vl9m2Y4JwH1UT7hhkxnyJc15IaVsr6V
+drMMuxhJFCdt5nKj8MWg9vCwba5eOvyBfCE2cKTtY0ZyHKR+olppM0mzlJ7DR2jV
+XCANpV4eUd0MneQXYrRSTISBSQKBgQDXxafJt6hs/BGJbCyYKktShJqcYLSjYNfo
+xIUF1SxNde+mdGR9ICq1FnbcVjmskB7+sB6mneYo30yoCCxiYyOeO6SjwynOgPlB
+DLvYfQylbU6ALh5aYVSQLwHWKm4qNVDThRCCZCLA7bcoeGpDXvVcYDzgDVSDFTvd
+r3vj+huwxwKBgC/pGQlXIdHtBV0OfM3GP+ug86MmJMJeSvkOt6v5mzuf/L13xmFW
+a1trybTcnha9AFuUTWpGMdwhgdxOMR4Cy5xtTzGnM3mSt+bRTQOIKY1h/3jpsBd1
+wzlAePfNtHZpuBAqPuE6D1KRX6/Xhihs4cYggvDaWDiuy2i2+gIRmlCRAoGAJytZ
+ZzPw3j/wCwtZGRJsdAFgc8zWXeZBq56pK0LkdPdY1tXAPDqvpgn678qzU5EiH0fn
+eIWnd3n513MMY5vtplbbb2MJXtRo6xcdrpIczpcGLhyxI+URTc9KvQ8cyoq9Lni0
+Y4c8C9vbaPxbBfnh/q/1vRKOafFb2cV2bw9DIZcCgYEAnVOpyKBTz9ox4PRQsZFd
+s7ELyHA8HARfk0AVS3YfoYOB3CUxB0gHDc088jqJE73j46YOIS54eiAB5H2LEGBa
+JA6DCTqWm2beqTjy10L80KljTl/Bp+xFaA0+uA+YK31fFAigaClj2TG3eracflgm
+pM82/u2pkOsRcyYu9qeYL7s=
+-----END PRIVATE KEY-----
+"""
