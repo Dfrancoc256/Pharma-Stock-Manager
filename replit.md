@@ -2,14 +2,15 @@
 
 ## Arquitectura
 
-Sistema web de farmacia para Guatemala. Google Sheets es la base de datos principal. PostgreSQL solo almacena sesiones y usuarios OAuth del sistema Replit.
+Sistema web de farmacia para Guatemala. **Google Sheets es la única base de datos** — usuarios, inventario, ventas, movimientos y fiadores. Sin PostgreSQL.
 
 ### Stack
 - **Frontend**: React + TypeScript + Vite + TailwindCSS + shadcn/ui
 - **Backend**: Express.js + TypeScript
-- **Base de datos primaria**: Google Sheets (googleapis)
-- **Base de datos secundaria**: PostgreSQL (Drizzle ORM) — solo sesiones y tabla `users`
+- **Base de datos**: Google Sheets (googleapis) — única fuente de verdad
+- **Sesiones**: `memorystore` (en memoria, sin DB)
 - **Autenticación**: `simpleAuth.ts` — valida contra hoja `Usuarios` de Google Sheets
+- **IA**: Groq (`openai` SDK) con modelo `llama-3.3-70b-versatile`
 
 ## Google Sheets
 
@@ -34,7 +35,7 @@ Sistema web de farmacia para Guatemala. Google Sheets es la base de datos princi
 
 ### Autenticación (`server/simpleAuth.ts`)
 - `GET /api/auth/user` — usuario actual de sesión
-- `POST /api/auth/login` — login contra hoja Usuarios
+- `POST /api/auth/login` — login contra hoja Usuarios de Sheets
 - `POST /api/auth/logout` — cierra sesión
 
 ### Google Sheets API (`/api/sheets/...`)
@@ -51,17 +52,13 @@ Sistema web de farmacia para Guatemala. Google Sheets es la base de datos princi
 - `POST /api/sheets/movimientos` — crear movimiento
 - `GET /api/sheets/usuarios` — lista usuarios de Sheets
 - `POST /api/sheets/usuarios` — crear usuario en Sheets
-- `PUT /api/sheets/usuarios/:email` — actualizar usuario en Sheets
+- `PUT /api/sheets/usuarios/:usuario` — actualizar usuario en Sheets
 - `GET /api/sheets/dashboard` — estadísticas KPI
 - `GET /api/sheets/balances?desde=&hasta=` — balances por fecha
 
 ### AI (`/api/ai/...`, `server/aiRoutes.ts`)
 - `POST /api/ai/buscar` — búsqueda semántica de productos con Groq
 - `POST /api/ai/recomendacion` — dosificación/recomendaciones por producto
-
-### PostgreSQL (`/api/users`)
-- `GET /api/users` — lista usuarios OAuth
-- `POST /api/users` — crear usuario OAuth
 
 ## Módulos del frontend
 
@@ -72,24 +69,18 @@ Sistema web de farmacia para Guatemala. Google Sheets es la base de datos princi
 | `/inventory` | Inventario | Google Sheets |
 | `/fiadores` | Fiadores | Google Sheets |
 | `/balances` | Balances | Google Sheets |
-| `/users` | Usuarios del sistema | PostgreSQL `users` |
+| `/users` | Usuarios del sistema | Google Sheets `Usuarios` |
 
 ## Archivos clave
 
 ```
 server/
   index.ts         — arranque Express
-  routes.ts        — registra auth, sheets, ai, users
-  sheetsRoutes.ts  — rutas Google Sheets
+  routes.ts        — registra auth, sheets, ai
+  sheetsRoutes.ts  — todas las rutas de Google Sheets
   aiRoutes.ts      — rutas Groq AI
-  simpleAuth.ts    — login/logout con Sheets
+  simpleAuth.ts    — login/logout con sesión en memoria
   googleSheets.ts  — cliente Sheets, CRUD funciones
-  storage.ts       — CRUD PostgreSQL (solo users)
-  db.ts            — conexión Drizzle/PostgreSQL
-
-shared/
-  schema.ts        — tablas sessions + users (Drizzle)
-  routes.ts        — definición de rutas /api/users
 
 client/src/
   App.tsx          — router Wouter + AuthGuard
@@ -110,6 +101,5 @@ client/src/
 
 ## Variables de entorno
 - `SESSION_SECRET` — para sesiones Express
-- `DATABASE_URL` — PostgreSQL para sessions/users
 - `GROQ_API_KEY` — API Groq para funciones IA
 - `REPLIT_CONNECTORS_HOSTNAME`, `REPL_IDENTITY` — Replit provee para Google Sheets OAuth

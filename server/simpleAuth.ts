@@ -1,21 +1,15 @@
-// Simple session-based auth validated against Google Sheets Usuarios tab
 import session from "express-session";
-import connectPg from "connect-pg-simple";
+import MemoryStore from "memorystore";
 import type { Express, RequestHandler } from "express";
 import { getUsuariosSheet } from "./googleSheets";
 
+const SessionStore = MemoryStore(session);
+
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000;
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
   return session({
     secret: process.env.SESSION_SECRET!,
-    store: sessionStore,
+    store: new SessionStore({ checkPeriod: sessionTtl }),
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -30,7 +24,6 @@ export function getSession() {
 export function setupSimpleAuth(app: Express) {
   app.use(getSession());
 
-  // POST /api/auth/login
   app.post("/api/auth/login", async (req: any, res) => {
     const { usuario, password } = req.body;
     if (!usuario || !password) {
@@ -40,7 +33,6 @@ export function setupSimpleAuth(app: Express) {
     try {
       const usuarios = await getUsuariosSheet();
 
-      // Find by Usuario column (case-insensitive)
       const user = usuarios.find((u: any) =>
         u.Usuario?.toLowerCase().trim() === usuario.toLowerCase().trim()
       );
@@ -49,41 +41,34 @@ export function setupSimpleAuth(app: Express) {
         return res.status(401).json({ message: "Usuario o contraseña incorrectos" });
       }
 
-      // Check password — column is "Pass"
       const pass = String(user.Pass ?? "");
       if (pass !== password) {
         return res.status(401).json({ message: "Usuario o contraseña incorrectos" });
       }
 
-      // Check active — column is "Activo", value must be TRUE
       const activo = String(user.Activo ?? "").toUpperCase().trim();
       if (activo !== "TRUE" && activo !== "SI" && activo !== "1" && activo !== "ACTIVO") {
         return res.status(403).json({ message: "Tu cuenta está inactiva. Contacta al administrador." });
       }
 
       const nombre = user.Usuario ?? usuario;
-      const rol = (user.Rol ?? "vendedor").toUpperCase().trim();
+      const rol = (user.Rol ?? "VENDEDOR").toUpperCase().trim();
 
-      (req.session as any).authUser = {
-        email: user.Usuario ?? usuario,
-        nombre,
-        rol,
-      };
+      (req.session as any).authUser = { email: usuario, nombre, rol };
 
       req.session.save((err: any) => {
         if (err) {
           console.error("Session save error:", err);
           return res.status(500).json({ message: "Error guardando sesión" });
         }
-        res.json({ email: user.Email ?? usuario, nombre, rol });
+        res.json({ email: usuario, nombre, rol });
       });
     } catch (err: any) {
       console.error("Login error:", err.message);
-      res.status(500).json({ message: "Error conectando con la base de datos. Intenta de nuevo." });
+      res.status(500).json({ message: "Error conectando con Google Sheets. Intenta de nuevo." });
     }
   });
 
-  // POST /api/auth/logout
   app.post("/api/auth/logout", (req: any, res) => {
     req.session.destroy((err: any) => {
       if (err) return res.status(500).json({ message: "Error cerrando sesión" });
@@ -92,7 +77,6 @@ export function setupSimpleAuth(app: Express) {
     });
   });
 
-  // GET /api/auth/logout (redirect-friendly)
   app.get("/api/logout", (req: any, res) => {
     req.session.destroy(() => {
       res.clearCookie("connect.sid");
@@ -100,7 +84,6 @@ export function setupSimpleAuth(app: Express) {
     });
   });
 
-  // GET /api/auth/user
   app.get("/api/auth/user", (req: any, res) => {
     const authUser = (req.session as any)?.authUser;
     if (!authUser) {

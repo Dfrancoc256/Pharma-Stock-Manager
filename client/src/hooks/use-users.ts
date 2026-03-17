@@ -1,14 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@shared/routes";
-import { type InsertUser } from "@shared/schema";
+
+export interface SheetUsuario {
+  Usuario: string;
+  Pass?: string;
+  Rol: string;
+  Activo: string;
+}
 
 export function useUsers() {
-  return useQuery({
-    queryKey: [api.users.list.path],
+  return useQuery<SheetUsuario[]>({
+    queryKey: ["/api/sheets/usuarios"],
     queryFn: async () => {
-      const res = await fetch(api.users.list.path, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch users");
-      return api.users.list.responses[200].parse(await res.json());
+      const res = await fetch("/api/sheets/usuarios", { credentials: "include" });
+      if (!res.ok) throw new Error("Error cargando usuarios");
+      return res.json();
     },
   });
 }
@@ -16,16 +21,40 @@ export function useUsers() {
 export function useCreateUser() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: InsertUser) => {
-      const res = await fetch(api.users.create.path, {
-        method: api.users.create.method,
+    mutationFn: async (data: { usuario: string; pass: string; rol: string }) => {
+      const res = await fetch("/api/sheets/usuarios", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to create user");
-      return api.users.create.responses[201].parse(await res.json());
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Error creando usuario");
+      }
+      return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.users.list.path] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/sheets/usuarios"] }),
+  });
+}
+
+export function useUpdateUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { usuario: string; pass?: string; rol?: string; activo?: string }) => {
+      const { usuario, ...updates } = data;
+      const res = await fetch(`/api/sheets/usuarios/${encodeURIComponent(usuario)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Error actualizando usuario");
+      }
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/sheets/usuarios"] }),
   });
 }
