@@ -1,18 +1,12 @@
-// IA Farmacia - Búsqueda inteligente, recomendaciones y estimación de stock
+// IA Farmacia - Búsqueda inteligente, recomendaciones y análisis de stock
+// Requiere: GROQ_API_KEY en variables de entorno
 import type { Express } from "express";
 import OpenAI from "openai";
 import { getStock, getMovimientos } from "./googleSheets";
 
-// Groq (gratuito) para búsqueda/recomendaciones del POS
 const groq = new OpenAI({
   apiKey: process.env.GROQ_API_KEY,
   baseURL: "https://api.groq.com/openai/v1",
-});
-
-// OpenAI (integración Replit) para info detallada de producto
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
 function parseNum(val: string): number {
@@ -65,7 +59,6 @@ Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instr
     }
   });
 
-
   // POST /api/ai/buscar - Búsqueda inteligente por síntoma o nombre
   app.post("/api/ai/buscar", async (req, res) => {
     const { query } = req.body;
@@ -83,7 +76,6 @@ Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instr
           precioUnidad: parseNum(p["Precio unidad"]),
         }));
 
-      // Pre-filtrar localmente para reducir tokens enviados a Groq
       const q = query.toLowerCase();
       const palabras = q.split(/\s+/).filter(Boolean);
       const preFiltered = todos.filter((p: any) => {
@@ -91,7 +83,6 @@ Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instr
         return palabras.some((w: string) => haystack.includes(w));
       });
 
-      // Si hay pre-filtrados usar esos, sino usar primeros 40 del catálogo
       const candidatos = preFiltered.length > 0
         ? preFiltered.slice(0, 60)
         : todos.slice(0, 40);
@@ -134,7 +125,7 @@ Máximo 6 resultados. Si no hay coincidencias claras, devuelve los más cercanos
     }
   });
 
-  // POST /api/ai/recomendar - Recomendaciones basadas en un producto
+  // POST /api/ai/recomendar - Recomendaciones complementarias o alternativas
   app.post("/api/ai/recomendar", async (req, res) => {
     const { productoId, nombre } = req.body;
     if (!productoId && !nombre) return res.status(400).json({ message: "productoId o nombre requerido" });
@@ -194,7 +185,7 @@ Máximo 3 de cada tipo.`
     }
   });
 
-  // POST /api/ai/duracion - Estima cuánto durará el stock
+  // POST /api/ai/duracion - Estima cuánto durará el stock actual
   app.post("/api/ai/duracion", async (req, res) => {
     const { productoId } = req.body;
     if (!productoId) return res.status(400).json({ message: "productoId requerido" });
@@ -207,15 +198,12 @@ Máximo 3 de cada tipo.`
 
       const stockActual = parseInt(producto.Stock) || 0;
       const nombre = producto.Nombre;
+      const precioUnidad = parseNum(producto["Precio unidad"]);
+      const precioCompra = parseNum(producto["Precio compra"]);
 
-      // Calcular ventas históricas del producto desde movimientos
       const ventasRelacionadas = movimientos.filter((m: any) =>
         m.Concepto && m.Concepto.toLowerCase().includes(nombre.toLowerCase().split(" ")[0])
       );
-
-      // Datos para el análisis
-      const precioUnidad = parseNum(producto["Precio unidad"]);
-      const precioCompra = parseNum(producto["Precio compra"]);
 
       const completion = await groq.chat.completions.create({
         model: "llama-3.3-70b-versatile",
@@ -232,7 +220,7 @@ Responde SOLO con JSON válido sin markdown:
   "nivel": "ok",
   "mensaje": "Con el stock actual se estima una duración de X días",
   "recomendacion": "Sugerencia de reorden o acción",
-  "alertas": ["alerta si stock bajo", "otra alerta si aplica"],
+  "alertas": ["alerta si stock bajo"],
   "margenUtilidad": "15%",
   "puntoPedido": 20
 }
@@ -247,9 +235,7 @@ Precio de compra: Q${precioCompra}
 Precio de venta unidad: Q${precioUnidad}
 Droguería: ${producto.Drogueria || "N/A"}
 Historial de movimientos relacionados: ${ventasRelacionadas.length} registros encontrados
-${ventasRelacionadas.length > 0 ? ventasRelacionadas.slice(0, 5).map((m: any) => `- ${m.Fecha}: ${m.Concepto} Q${m.Monto}`).join("\n") : "Sin historial de ventas registrado"}
-
-Analiza el nivel de stock y proporciona estimación de duración para esta farmacia de barrio.`
+${ventasRelacionadas.length > 0 ? ventasRelacionadas.slice(0, 5).map((m: any) => `- ${m.Fecha}: ${m.Concepto} Q${m.Monto}`).join("\n") : "Sin historial de ventas registrado"}`
           }
         ],
         response_format: { type: "json_object" },
@@ -258,8 +244,6 @@ Analiza el nivel de stock y proporciona estimación de duración para esta farma
 
       const content = completion.choices[0]?.message?.content || "{}";
       const parsed = JSON.parse(content);
-
-      // Añadir datos del producto en la respuesta
       res.json({
         ...parsed,
         producto: { id: productoId, nombre, stockActual, precioUnidad, precioCompra },

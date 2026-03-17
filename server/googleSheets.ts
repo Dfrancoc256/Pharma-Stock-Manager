@@ -1,50 +1,23 @@
-// Google Sheets integration - googleapis@148.0.0
+// Google Sheets integration - Service Account authentication
+// Required env vars: GOOGLE_SPREADSHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY
 import { google } from 'googleapis';
 
-const SPREADSHEET_ID = '1MwgmtT8b5jOUzF0rt5E_uRMgjFG1uKcgIB-P3fFQ7p8';
+const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID!;
 
-let connectionSettings: any;
-
-async function getAccessToken() {
-  if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
-    return connectionSettings.settings.access_token;
-  }
-
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const xReplitToken = process.env.REPL_IDENTITY
-    ? 'repl ' + process.env.REPL_IDENTITY
-    : process.env.WEB_REPL_RENEWAL
-    ? 'depl ' + process.env.WEB_REPL_RENEWAL
-    : null;
-
-  if (!xReplitToken) throw new Error('X-Replit-Token not found for repl/depl');
-
-  connectionSettings = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=google-sheet',
-    {
-      headers: {
-        'Accept': 'application/json',
-        'X-Replit-Token': xReplitToken
-      }
-    }
-  ).then(res => res.json()).then(data => data.items?.[0]);
-
-  const accessToken = connectionSettings?.settings?.access_token || connectionSettings?.settings?.oauth?.credentials?.access_token;
-  if (!connectionSettings || !accessToken) throw new Error('Google Sheet not connected');
-  return accessToken;
-}
-
-// WARNING: Never cache this client. Always call fresh.
-async function getUncachableGoogleSheetClient() {
-  const accessToken = await getAccessToken();
-  const oauth2Client = new google.auth.OAuth2();
-  oauth2Client.setCredentials({ access_token: accessToken });
-  return google.sheets({ version: 'v4', auth: oauth2Client });
+async function getSheetClient() {
+  const auth = new google.auth.GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    },
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+  return google.sheets({ version: 'v4', auth });
 }
 
 // ---- READ ----
 export async function leerHoja(nombreHoja: string): Promise<string[][]> {
-  const sheets = await getUncachableGoogleSheetClient();
+  const sheets = await getSheetClient();
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: nombreHoja,
@@ -54,7 +27,7 @@ export async function leerHoja(nombreHoja: string): Promise<string[][]> {
 
 // ---- APPEND ----
 export async function appendFila(nombreHoja: string, datos: any[]): Promise<void> {
-  const sheets = await getUncachableGoogleSheetClient();
+  const sheets = await getSheetClient();
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
     range: nombreHoja,
@@ -65,7 +38,7 @@ export async function appendFila(nombreHoja: string, datos: any[]): Promise<void
 
 // ---- UPDATE RANGE ----
 export async function updateRango(rango: string, datos: any[][]): Promise<void> {
-  const sheets = await getUncachableGoogleSheetClient();
+  const sheets = await getSheetClient();
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
     range: rango,
@@ -78,7 +51,7 @@ export async function updateRango(rango: string, datos: any[][]): Promise<void> 
 export async function findRowIndex(hoja: string, colIndex: number, value: string): Promise<number> {
   const data = await leerHoja(hoja);
   for (let i = 1; i < data.length; i++) {
-    if (data[i][colIndex] === value) return i + 1; // 1-indexed sheet row
+    if (data[i][colIndex] === value) return i + 1;
   }
   return -1;
 }
@@ -125,7 +98,7 @@ export async function updateStockSheet(id: string, newStock: number) {
   if (!rows || rows.length < 2) return;
   const headers = rows[0];
   const stockColIdx = headers.findIndex((h: string) => h.trim().toLowerCase() === 'stock');
-  if (stockColIdx < 0) return; // No stock column found, skip
+  if (stockColIdx < 0) return;
   const colLetter = String.fromCharCode(65 + stockColIdx);
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === id) {
@@ -136,11 +109,9 @@ export async function updateStockSheet(id: string, newStock: number) {
 }
 
 export async function deleteProductoSheet(id: string) {
-  // Mark as deleted by clearing the row — in Sheets we just zero the stock
   const rows = await leerHoja('Stock');
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === id) {
-      // Clear all fields in the row
       const cols = rows[i].length;
       const emptyCols = Array(cols).fill('');
       await updateRango(`Stock!A${i + 1}`, [emptyCols]);
@@ -178,8 +149,7 @@ export async function createVentaSheet(params: {
       item.cantidad, item.precioUnitario, item.subtotal,
       item.costoUnitario, item.utilidad
     ]);
-    // Descontar stock
-    await updateStockSheet(item.productoId, -1); // will be updated properly below
+    await updateStockSheet(item.productoId, -1);
   }
 
   return { id: newId, total: params.total };
@@ -233,7 +203,6 @@ export async function getUsuariosSheet() {
   return rowsToObjects(rows);
 }
 
-// Usuarios sheet columns: Usuario, Pass, Rol, Activo
 export async function createUsuarioSheet(params: { usuario: string; pass: string; rol: string; activo: string }) {
   await appendFila('Usuarios', [params.usuario, params.pass, params.rol, params.activo]);
   return params;
@@ -251,9 +220,12 @@ export async function updateUsuarioSheet(usuario: string, updates: { pass?: stri
       const rolCol = colIndex('Rol');
       const activoCol = colIndex('Activo');
       const colLetter = (n: number) => String.fromCharCode(65 + n);
-      if (updates.pass !== undefined && passCol >= 0) await updateRango(`Usuarios!${colLetter(passCol)}${i + 1}`, [[updates.pass]]);
-      if (updates.rol !== undefined && rolCol >= 0) await updateRango(`Usuarios!${colLetter(rolCol)}${i + 1}`, [[updates.rol]]);
-      if (updates.activo !== undefined && activoCol >= 0) await updateRango(`Usuarios!${colLetter(activoCol)}${i + 1}`, [[updates.activo]]);
+      if (updates.pass !== undefined && updates.pass !== '' && passCol >= 0)
+        await updateRango(`Usuarios!${colLetter(passCol)}${i + 1}`, [[updates.pass]]);
+      if (updates.rol !== undefined && rolCol >= 0)
+        await updateRango(`Usuarios!${colLetter(rolCol)}${i + 1}`, [[updates.rol]]);
+      if (updates.activo !== undefined && activoCol >= 0)
+        await updateRango(`Usuarios!${colLetter(activoCol)}${i + 1}`, [[updates.activo]]);
       return;
     }
   }
