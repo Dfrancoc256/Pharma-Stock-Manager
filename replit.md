@@ -2,14 +2,14 @@
 
 ## Arquitectura
 
-Sistema web de farmacia con Google Sheets como base de datos principal, autenticación via Replit Auth.
+Sistema web de farmacia para Guatemala. Google Sheets es la base de datos principal. PostgreSQL solo almacena sesiones y usuarios OAuth del sistema Replit.
 
 ### Stack
 - **Frontend**: React + TypeScript + Vite + TailwindCSS + shadcn/ui
 - **Backend**: Express.js + TypeScript
-- **Base de datos primaria**: Google Sheets (googleapis v148)
-- **Base de datos secundaria**: PostgreSQL (Drizzle ORM) - solo para auth/sessions
-- **Autenticación**: Replit Auth (OpenID Connect)
+- **Base de datos primaria**: Google Sheets (googleapis)
+- **Base de datos secundaria**: PostgreSQL (Drizzle ORM) — solo sesiones y tabla `users`
+- **Autenticación**: `simpleAuth.ts` — valida contra hoja `Usuarios` de Google Sheets
 
 ## Google Sheets
 
@@ -22,36 +22,46 @@ Sistema web de farmacia con Google Sheets como base de datos principal, autentic
 | `Ventas` | ID_Venta, Fecha, Usuario, Cliente, Tipo, Fiador_ID, Metodo_pago, Total |
 | `Detalle_Venta` | ID_Venta, Producto_ID, Nombre, Tipo_precio, Cantidad, Precio_unitario, Subtotal, Costo_unitario, Utilidad |
 | `Movimientos` | ID_Mov, Fecha, Tipo, Concepto, Monto, Usuario, Referencia |
-| `Fiadores` | Fiador_ID, Nombre, Telefono, Direccion, Saldo_actual |
+| `Fiadores` | Fiador_ID, Nombre, Telefono, Direccion, Limite_credito, Saldo_actual, Activo |
 | `Usuarios` | Usuario, Pass, Rol, Activo |
 
-### Columnas de Usuarios (Login):
-- **Usuario**: nombre de usuario para ingresar al sistema
-- **Pass**: contraseña en texto plano
+### Usuarios (Login):
 - **Rol**: `ADMIN` (acceso total) o `VENDEDOR` (acceso limitado)
 - **Activo**: `TRUE` para activo, `FALSE` para bloqueado
-
-### IMPORTANTE: La primera fila de cada pestaña debe ser los encabezados.
+- La primera fila de cada pestaña son los encabezados.
 
 ## Rutas del servidor
 
+### Autenticación (`server/simpleAuth.ts`)
+- `GET /api/auth/user` — usuario actual de sesión
+- `POST /api/auth/login` — login contra hoja Usuarios
+- `POST /api/auth/logout` — cierra sesión
+
 ### Google Sheets API (`/api/sheets/...`)
-- `GET /api/sheets/stock` - Lista todos los productos
-- `POST /api/sheets/stock` - Crear producto
-- `PUT /api/sheets/stock/:id` - Actualizar producto
-- `DELETE /api/sheets/stock/:id` - Eliminar producto (limpia la fila)
-- `GET /api/sheets/ventas` - Lista ventas
-- `POST /api/sheets/ventas` - Crear venta (actualiza stock, movimientos, fiadores)
-- `GET /api/sheets/fiadores` - Lista fiadores
-- `POST /api/sheets/fiadores` - Crear fiador
-- `PUT /api/sheets/fiadores/:id/pagar` - Reducir saldo de fiador
-- `GET /api/sheets/movimientos` - Lista movimientos
-- `POST /api/sheets/movimientos` - Crear movimiento
-- `GET /api/sheets/usuarios` - Lista usuarios de Sheets
-- `POST /api/sheets/usuarios` - Crear usuario
-- `PUT /api/sheets/usuarios/:email` - Actualizar usuario
-- `GET /api/sheets/dashboard` - Estadísticas del dashboard
-- `GET /api/sheets/balances?desde=&hasta=` - Balances filtrados por fecha
+- `GET /api/sheets/stock` — lista productos
+- `POST /api/sheets/stock` — crear producto
+- `PUT /api/sheets/stock/:id` — actualizar producto
+- `DELETE /api/sheets/stock/:id` — eliminar producto
+- `GET /api/sheets/ventas` — lista ventas
+- `POST /api/sheets/ventas` — crear venta (stock + movimientos + fiadores)
+- `GET /api/sheets/fiadores` — lista fiadores
+- `POST /api/sheets/fiadores` — crear fiador
+- `PUT /api/sheets/fiadores/:id/pagar` — reducir saldo fiador
+- `GET /api/sheets/movimientos` — lista movimientos
+- `POST /api/sheets/movimientos` — crear movimiento
+- `GET /api/sheets/usuarios` — lista usuarios de Sheets
+- `POST /api/sheets/usuarios` — crear usuario en Sheets
+- `PUT /api/sheets/usuarios/:email` — actualizar usuario en Sheets
+- `GET /api/sheets/dashboard` — estadísticas KPI
+- `GET /api/sheets/balances?desde=&hasta=` — balances por fecha
+
+### AI (`/api/ai/...`, `server/aiRoutes.ts`)
+- `POST /api/ai/buscar` — búsqueda semántica de productos con Groq
+- `POST /api/ai/recomendacion` — dosificación/recomendaciones por producto
+
+### PostgreSQL (`/api/users`)
+- `GET /api/users` — lista usuarios OAuth
+- `POST /api/users` — crear usuario OAuth
 
 ## Módulos del frontend
 
@@ -62,30 +72,44 @@ Sistema web de farmacia con Google Sheets como base de datos principal, autentic
 | `/inventory` | Inventario | Google Sheets |
 | `/fiadores` | Fiadores | Google Sheets |
 | `/balances` | Balances | Google Sheets |
-| `/users` | Usuarios | Replit Auth (PostgreSQL) |
+| `/users` | Usuarios del sistema | PostgreSQL `users` |
 
 ## Archivos clave
 
-- `server/googleSheets.ts` - Cliente Google Sheets, funciones CRUD
-- `server/sheetsRoutes.ts` - Rutas Express para Sheets
-- `server/routes.ts` - Rutas principales + llama sheetsRoutes
-- `client/src/pages/dashboard.tsx` - Dashboard con KPIs desde Sheets
-- `client/src/pages/pos.tsx` - POS con carrito y tipos de precio
-- `client/src/pages/inventory.tsx` - Inventario completo
-- `client/src/pages/fiadores.tsx` - Fiadores y pagos
-- `client/src/pages/balances.tsx` - Balances con filtro de fechas
+```
+server/
+  index.ts         — arranque Express
+  routes.ts        — registra auth, sheets, ai, users
+  sheetsRoutes.ts  — rutas Google Sheets
+  aiRoutes.ts      — rutas Groq AI
+  simpleAuth.ts    — login/logout con Sheets
+  googleSheets.ts  — cliente Sheets, CRUD funciones
+  storage.ts       — CRUD PostgreSQL (solo users)
+  db.ts            — conexión Drizzle/PostgreSQL
+
+shared/
+  schema.ts        — tablas sessions + users (Drizzle)
+  routes.ts        — definición de rutas /api/users
+
+client/src/
+  App.tsx          — router Wouter + AuthGuard
+  pages/           — dashboard, pos, inventory, fiadores, balances, users, login
+  hooks/           — use-auth, use-users, use-mobile, use-toast
+  components/      — Layout, PageHeader + shadcn/ui
+  lib/             — queryClient, auth-utils, utils
+```
 
 ## Funcionalidades del POS
-- Búsqueda por nombre, detalle, casa, categoría
+- Búsqueda texto + búsqueda IA (Groq llama-3.3-70b-versatile)
+- Panel de dosificación por producto (IA)
 - Carrito con tipos de precio: unidad, blister, caja
 - Venta al contado (efectivo, tarjeta, transferencia) o al fiado
+- Creación inline de fiador nuevo al momento de venta fiada
 - Cálculo de cambio automático
-- Descuento de stock en Sheets
-- Registro de ingreso en Movimientos
-- Actualización de saldo de fiadores
-- Impresión de recibo (sin NIT - Consumidor Final)
+- Modal de compartir recibo: WhatsApp, email, imprimir
 
-## Configuración de env vars
-- `SESSION_SECRET` - Replit provee automáticamente
-- `DATABASE_URL` - PostgreSQL para sessions
-- `REPLIT_CONNECTORS_HOSTNAME`, `REPL_IDENTITY` - Replit provee para OAuth Google Sheets
+## Variables de entorno
+- `SESSION_SECRET` — para sesiones Express
+- `DATABASE_URL` — PostgreSQL para sessions/users
+- `GROQ_API_KEY` — API Groq para funciones IA
+- `REPLIT_CONNECTORS_HOSTNAME`, `REPL_IDENTITY` — Replit provee para Google Sheets OAuth
