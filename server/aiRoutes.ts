@@ -7,8 +7,8 @@ import { getStock, getMovimientos } from "./googleSheets";
 let _groqClient: OpenAI | null = null;
 function getGroq(): OpenAI {
   if (!_groqClient) {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) throw new Error("GROQ_API_KEY no está configurado en las variables de entorno");
+    const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new Error("Falta GROQ_API_KEY en las variables de entorno");
     _groqClient = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
   }
   return _groqClient;
