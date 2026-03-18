@@ -4,10 +4,15 @@ import type { Express } from "express";
 import OpenAI from "openai";
 import { getStock, getMovimientos } from "./googleSheets";
 
-const groq = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
-  baseURL: "https://api.groq.com/openai/v1",
-});
+let _groqClient: OpenAI | null = null;
+function getGroq(): OpenAI {
+  if (!_groqClient) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) throw new Error("GROQ_API_KEY no está configurado en las variables de entorno");
+    _groqClient = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
+  }
+  return _groqClient;
+}
 
 function parseNum(val: string): number {
   return parseFloat(String(val).replace(",", ".")) || 0;
@@ -21,7 +26,7 @@ export function registerAIRoutes(app: Express) {
     if (!nombre) return res.status(400).json({ message: "nombre requerido" });
 
     try {
-      const completion = await groq.chat.completions.create({
+      const completion = await getGroq().chat.completions.create({
         model: "llama-3.3-70b-versatile",
         messages: [
           {
@@ -91,7 +96,7 @@ Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instr
         .map((p: any) => `ID:${p.id} | ${p.nombre} ${p.detalle} | Cat: ${p.categoria} | Precio: Q${p.precioUnidad}`)
         .join("\n");
 
-      const completion = await groq.chat.completions.create({
+      const completion = await getGroq().chat.completions.create({
         model: "llama-3.3-70b-versatile",
         messages: [
           {
@@ -147,7 +152,7 @@ Máximo 6 resultados. Si no hay coincidencias claras, devuelve los más cercanos
         .map((p: any) => `ID:${p.id} | ${p.nombre} ${p.detalle} | Cat: ${p.categoria} | Q${p.precioUnidad}`)
         .join("\n");
 
-      const completion = await groq.chat.completions.create({
+      const completion = await getGroq().chat.completions.create({
         model: "llama-3.3-70b-versatile",
         messages: [
           {
@@ -205,7 +210,7 @@ Máximo 3 de cada tipo.`
         m.Concepto && m.Concepto.toLowerCase().includes(nombre.toLowerCase().split(" ")[0])
       );
 
-      const completion = await groq.chat.completions.create({
+      const completion = await getGroq().chat.completions.create({
         model: "llama-3.3-70b-versatile",
         messages: [
           {
