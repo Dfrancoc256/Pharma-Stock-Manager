@@ -209,16 +209,35 @@ export function registerSheetsRoutes(app: Express) {
     }
   });
 
+  app.get('/api/sheets/fiadores/:id/ventas', async (req, res) => {
+    try {
+      const ventas = await getVentas();
+      const fiadorVentas = ventas.filter((v: any) => v['Fiador_ID'] === req.params.id && v['Tipo'] === 'fiado');
+      res.json(fiadorVentas);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.put('/api/sheets/fiadores/:id/pagar', async (req, res) => {
     try {
       const { monto } = req.body;
       const fiadores = await getFiadores();
-      const fiador = fiadores.find(f => f['Fiador_ID'] === req.params.id);
+      const fiador = fiadores.find((f: any) => f['Fiador_ID'] === req.params.id);
       if (!fiador) return res.status(404).json({ message: 'Fiador no encontrado' });
       const saldoActual = parseFloat(fiador['Saldo_actual'] || '0');
       const nuevoSaldo = Math.max(0, saldoActual - parseFloat(monto)).toFixed(2);
       await updateFiadorSaldoSheet(req.params.id, nuevoSaldo);
       res.json({ id: req.params.id, nuevoSaldo });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.put('/api/sheets/fiadores/:id/cancelar', async (req, res) => {
+    try {
+      await updateFiadorSaldoSheet(req.params.id, '0');
+      res.json({ id: req.params.id, nuevoSaldo: '0' });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -259,11 +278,12 @@ export function registerSheetsRoutes(app: Express) {
   // ==================== DASHBOARD ====================
   app.get('/api/sheets/dashboard', async (req, res) => {
     try {
-      const [stockRows, movimientosRows, detalleVentaRows, ventasRows] = await Promise.all([
+      const [stockRows, movimientosRows, detalleVentaRows, ventasRows, fiadoresRows] = await Promise.all([
         leerHoja('Stock'),
         leerHoja('Movimientos'),
         leerHoja('Detalle_Venta'),
         leerHoja('Ventas'),
+        leerHoja('Fiadores'),
       ]);
 
       // Stock stats - find stock column by header
@@ -375,11 +395,29 @@ export function registerSheetsRoutes(app: Express) {
       }
       const ventasPorMes = Object.values(mesMap).sort((a, b) => a.order - b.order);
 
+      // Fiado pendiente — suma de saldo_actual de todos los fiadores
+      const fiadoresData = fiadoresRows.slice(1).filter((r: string[]) => r[0]);
+      const fiadoreHeaders = fiadoresRows[0] || [];
+      const saldoColIdx = fiadoreHeaders.findIndex((h: string) => h.trim().toLowerCase() === 'saldo_actual');
+      const fiadoPendiente = fiadoresData.reduce((acc: number, r: string[]) => {
+        const val = saldoColIdx >= 0 ? parseFloat(r[saldoColIdx] || '0') : parseFloat(r[5] || '0');
+        return acc + (isNaN(val) ? 0 : val);
+      }, 0);
+
+      // Ventas fiado cobradas hoy (contado ventas hoy = caja real hoy)
+      const hoyStr = `${String(hoy.getDate()).padStart(2, '0')}/${String(hoy.getMonth() + 1).padStart(2, '0')}/${hoy.getFullYear()}`;
+      const ventasHoy = ventasRows2.filter((v: string[]) => v[1]?.startsWith(hoyStr));
+      const ventasContadoHoy = ventasHoy.filter((v: string[]) => v[4] === 'contado').reduce((acc: number, v: string[]) => acc + parseFloat(v[7] || '0'), 0);
+      const ventasFiadoHoy = ventasHoy.filter((v: string[]) => v[4] === 'fiado').reduce((acc: number, v: string[]) => acc + parseFloat(v[7] || '0'), 0);
+
       res.json({
         totalProductos, existenciaTotal, bajosStock, totalVentas,
         ingresos: ingresos.toFixed(2),
         egresos: egresos.toFixed(2),
         cajaNeta: cajaNeta.toFixed(2),
+        fiadoPendiente: fiadoPendiente.toFixed(2),
+        ventasContadoHoy: ventasContadoHoy.toFixed(2),
+        ventasFiadoHoy: ventasFiadoHoy.toFixed(2),
         topProductos,
         ventasPorDia,
         ventasPorHora,

@@ -17,6 +17,9 @@ interface DashboardData {
   ingresos: string;
   egresos: string;
   cajaNeta: string;
+  fiadoPendiente?: string;
+  ventasContadoHoy?: string;
+  ventasFiadoHoy?: string;
   topProductos: { id: string; nombre: string; total: number; cantidad: number }[];
   ventasPorDia?: { fecha: string; ingresos: number; egresos: number }[];
   ventasPorHora?: { hora: string; ventas: number }[];
@@ -169,10 +172,32 @@ export default function DashboardPage() {
               sub="unidades"
             />
             <KpiCard
-              icon={CalendarDays} label="Ventas de hoy" color="border-indigo-500"
-              value={`Q ${ingresosHoy.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
-              sub={`Caja hoy: Q ${cajaHoy.toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
-              trend={ingresosHoy > 0 ? 'up' : 'neutral'}
+              icon={CalendarDays} label="Contado hoy" color="border-indigo-500"
+              value={`Q ${parseFloat(data.ventasContadoHoy || '0').toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
+              sub="Efectivo real en caja"
+              trend={parseFloat(data.ventasContadoHoy || '0') > 0 ? 'up' : 'neutral'}
+            />
+          </div>
+
+          {/* ── KPI Row 3 — Fiados ── */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <KpiCard
+              icon={TrendingUp} label="Fiado hoy" color="border-amber-500"
+              value={`Q ${parseFloat(data.ventasFiadoHoy || '0').toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
+              sub="Vendido al fiado hoy"
+              trend="neutral"
+            />
+            <KpiCard
+              icon={DollarSign} label="Fiado pendiente total" color="border-red-400"
+              value={`Q ${parseFloat(data.fiadoPendiente || '0').toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
+              sub="Por cobrar de clientes al fiado"
+              trend={parseFloat(data.fiadoPendiente || '0') > 0 ? 'down' : 'neutral'}
+            />
+            <KpiCard
+              icon={ShoppingCart} label="Caja real hoy" color="border-emerald-500"
+              value={`Q ${parseFloat(data.ventasContadoHoy || '0').toLocaleString('es-GT', { minimumFractionDigits: 2 })}`}
+              sub="Solo ventas de contado"
+              trend={parseFloat(data.ventasContadoHoy || '0') > 0 ? 'up' : 'neutral'}
             />
           </div>
 
