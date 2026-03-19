@@ -189,9 +189,13 @@ export async function createFiadorSheet(params: {
 
 export async function updateFiadorSaldoSheet(id: string, nuevoSaldo: string) {
   const rows = await leerHoja('Fiadores');
+  if (!rows || rows.length < 2) return;
+  const headers = rows[0];
+  const saldoColIdx = headers.findIndex((h: string) => h.trim().toLowerCase() === 'saldo_actual');
+  const colLetter = saldoColIdx >= 0 ? String.fromCharCode(65 + saldoColIdx) : 'F';
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === id) {
-      await updateRango(`Fiadores!E${i + 1}`, [[nuevoSaldo]]);
+      await updateRango(`Fiadores!${colLetter}${i + 1}`, [[nuevoSaldo]]);
       return;
     }
   }
@@ -231,4 +235,3 @@ export async function updateUsuarioSheet(usuario: string, updates: { pass?: stri
   }
 }
 
-export { SPREADSHEET_ID };

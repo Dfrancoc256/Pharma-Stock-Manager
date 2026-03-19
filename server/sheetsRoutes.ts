@@ -1,12 +1,12 @@
 // Google Sheets API Routes - All data flows through Sheets as primary DB
 import type { Express } from "express";
 import {
-  getStock, createProductoSheet, updateStockSheet, deleteProductoSheet,
-  getVentas, getDetalleVenta, createVentaSheet,
+  getStock, createProductoSheet, deleteProductoSheet,
+  getVentas, getDetalleVenta,
   getMovimientos, createMovimientoSheet,
   getFiadores, createFiadorSheet, updateFiadorSaldoSheet,
   getUsuariosSheet, createUsuarioSheet, updateUsuarioSheet,
-  leerHoja, appendFila
+  leerHoja, appendFila, updateRango
 } from "./googleSheets";
 import { format } from "date-fns";
 
@@ -58,7 +58,6 @@ export function registerSheetsRoutes(app: Express) {
           set('precio caja', body.precioCaja); set('posicion', body.posicion);
           set('stock', body.stock); set('drogueria', body.drogueria);
           set('Unidades blister', body.unidadesBlister); set('Unidades caja', body.unidadesCaja);
-          const { updateRango } = await import('./googleSheets');
           await updateRango(`Stock!A${i + 1}`, [row]);
           return res.json({ message: 'Updated', id });
         }
@@ -137,7 +136,6 @@ export function registerSheetsRoutes(app: Express) {
             if (stockRows[i][0] === item.productoId.toString()) {
               const currentStock = parseInt(stockRows[i][stockColIdx]) || 0;
               const newStock = Math.max(0, currentStock - parseInt(item.cantidad));
-              const { updateRango } = await import('./googleSheets');
               await updateRango(`Stock!${stockColLetter}${i + 1}`, [[newStock]]);
               stockRows[i][stockColIdx] = newStock.toString();
               break;
