@@ -149,9 +149,13 @@ export function registerSheetsRoutes(app: Express) {
       const lastMovId = movRows.length > 1 ? parseInt(movRows[movRows.length - 1][0]) || 0 : 0;
       await appendFila('Movimientos', [lastMovId + 1, fecha, 'ingreso', `Venta #${newId}`, total, usuario, newId]);
 
-      // Update fiador saldo if fiado
+      // Update fiador saldo if fiado — add sale total to existing balance
       if (tipo === 'fiado' && fiadorId) {
-        await updateFiadorSaldoSheet(fiadorId, total);
+        const fiadores = await getFiadores();
+        const fiador = fiadores.find((f: any) => String(f['Fiador_ID']) === String(fiadorId));
+        const saldoActual = parseFloat(fiador?.['Saldo_actual'] || '0');
+        const nuevoSaldo = (saldoActual + parseFloat(total)).toFixed(2);
+        await updateFiadorSaldoSheet(String(fiadorId), nuevoSaldo);
       }
 
       res.status(201).json({ id: newId, total, fecha });
