@@ -249,6 +249,7 @@ export default function POSPage() {
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareWhatsapp, setShareWhatsapp] = useState('');
   const [shareEmail, setShareEmail] = useState('');
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   // Producto info panel
   const [infoProducto, setInfoProducto] = useState<Producto | null>(null);
@@ -431,6 +432,149 @@ export default function POSPage() {
         utilidad: (getPrecio(i.producto, i.tipoPrecio) - parseFloat(i.producto['Precio compra'] || '0')).toFixed(2),
       }))
     });
+  };
+
+  const generateReceiptPDF = async (): Promise<Blob | null> => {
+    if (!receiptData) return null;
+    const { jsPDF } = await import('jspdf');
+    const itemCount = receiptData.items.length;
+    const pageHeight = Math.max(160, 100 + itemCount * 16 + 50);
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [80, pageHeight] });
+
+    try {
+      const logoRes = await fetch('/logo-farmacia.png');
+      const logoBlob = await logoRes.blob();
+      const logoDataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(logoBlob);
+      });
+      doc.addImage(logoDataUrl, 'PNG', 15, 4, 50, 28);
+    } catch {}
+
+    let y = 36;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FARMACIA LA PABLO VI', 40, y, { align: 'center' });
+    y += 5;
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text(receiptData.fecha, 40, y, { align: 'center' });
+    y += 4;
+    if (receiptData.clienteNombre) {
+      doc.text(`Cliente: ${receiptData.clienteNombre}`, 40, y, { align: 'center' });
+      y += 4;
+    }
+
+    doc.setLineWidth(0.2);
+    doc.line(4, y, 76, y);
+    y += 4;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.text('Producto', 4, y);
+    doc.text('Cant', 46, y, { align: 'center' });
+    doc.text('P.Unit', 57, y);
+    doc.text('Total', 76, y, { align: 'right' });
+    y += 3;
+    doc.line(4, y, 76, y);
+    y += 4;
+
+    doc.setFont('helvetica', 'normal');
+    for (const item of receiptData.items) {
+      const precio = getPrecio(item.producto, item.tipoPrecio);
+      const total = precio * item.cantidad;
+      const nombre = item.producto.Nombre.length > 26 ? item.producto.Nombre.substring(0, 24) + '..' : item.producto.Nombre;
+      doc.text(nombre, 4, y);
+      doc.text(`${item.cantidad}`, 46, y, { align: 'center' });
+      doc.text(`Q${precio.toFixed(2)}`, 57, y);
+      doc.text(`Q${total.toFixed(2)}`, 76, y, { align: 'right' });
+      y += 6;
+    }
+
+    doc.line(4, y, 76, y);
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('TOTAL:', 4, y);
+    doc.text(`Q${receiptData.total.toFixed(2)}`, 76, y, { align: 'right' });
+    y += 6;
+
+    if (receiptData.paid !== undefined) {
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Recibido:', 4, y);
+      doc.text(`Q${receiptData.paid.toFixed(2)}`, 76, y, { align: 'right' });
+      y += 5;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Cambio:', 4, y);
+      doc.text(`Q${(receiptData.change ?? 0).toFixed(2)}`, 76, y, { align: 'right' });
+      y += 5;
+    }
+
+    doc.line(4, y, 76, y);
+    y += 5;
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(6.5);
+    doc.text('¡Gracias por su preferencia!', 40, y, { align: 'center' });
+    y += 4;
+    doc.text('Sin NIT — Consumidor Final', 40, y, { align: 'center' });
+
+    return doc.output('blob');
+  };
+
+  const handleDownloadPDF = async () => {
+    setPdfGenerating(true);
+    try {
+      const blob = await generateReceiptPDF();
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `recibo-farmacia-${Date.now()}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
+  const handleShareWhatsApp = async () => {
+    const waNum = shareWhatsapp.replace(/\D/g, '');
+    setPdfGenerating(true);
+    try {
+      const blob = await generateReceiptPDF();
+      if (!blob) return;
+      const file = new File([blob], `recibo-farmacia-${Date.now()}.pdf`, { type: 'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Recibo Farmacia La Pablo VI' });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name;
+        a.click();
+        URL.revokeObjectURL(url);
+        if (waNum) {
+          const lines = [
+            '🏥 *FARMACIA LA PABLO VI*',
+            `📅 ${receiptData?.fecha}`,
+            '─────────────────────',
+            ...(receiptData?.items.map(item =>
+              `• ${item.producto.Nombre}\n  ${item.cantidad} x Q${getPrecio(item.producto, item.tipoPrecio).toFixed(2)} = Q${(getPrecio(item.producto, item.tipoPrecio) * item.cantidad).toFixed(2)}`
+            ) ?? []),
+            '─────────────────────',
+            `*TOTAL: Q${receiptData?.total.toFixed(2)}*`,
+            '¡Gracias por su preferencia!',
+          ].filter(Boolean).join('\n');
+          window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(lines)}`, '_blank');
+        }
+      }
+    } catch {
+      handleDownloadPDF();
+    } finally {
+      setPdfGenerating(false);
+    }
   };
 
   async function handleAISearch(e: React.FormEvent) {
@@ -794,7 +938,7 @@ export default function POSPage() {
       {/* Share Receipt Modal */}
       {isShareOpen && receiptData && (() => {
         const lines = [
-          '🏥 *FARMACIA WEB*',
+          '🏥 *FARMACIA LA PABLO VI*',
           `📅 ${receiptData.fecha}`,
           '─────────────────────',
           ...receiptData.items.map(item =>
@@ -811,11 +955,7 @@ export default function POSPage() {
         const emailBody = lines.replace(/\*/g, '').replace(/🏥|📅/g, '');
         const emailSubject = `Recibo Farmacia Web - ${receiptData.fecha}`;
 
-        const waNum = shareWhatsapp.replace(/\D/g, '');
-        const waLink = waNum ? `https://wa.me/${waNum}?text=${encodeURIComponent(lines)}` : '';
         const mailLink = shareEmail ? `mailto:${shareEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}` : '';
-
-        const canPrint = !!(waNum || shareEmail);
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -844,7 +984,7 @@ export default function POSPage() {
                   <span className="font-medium">Compartir recibo</span>
                 </div>
 
-                {/* WhatsApp */}
+                {/* WhatsApp con PDF */}
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm font-semibold">
                     <MessageCircle size={16} className="text-green-600" /> WhatsApp — número del destinatario
@@ -857,17 +997,17 @@ export default function POSPage() {
                       onChange={e => setShareWhatsapp(e.target.value.replace(/\D/g, ''))}
                       data-testid="input-share-whatsapp"
                     />
-                    <a
-                      href={waLink || '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={e => { if (!waNum) e.preventDefault(); }}
-                      className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 interactive-btn text-white ${waNum ? 'bg-green-500 hover:bg-green-600' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
+                    <button
+                      onClick={handleShareWhatsApp}
+                      disabled={pdfGenerating || !shareWhatsapp.replace(/\D/g, '')}
+                      className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 interactive-btn text-white ${shareWhatsapp.replace(/\D/g, '') ? 'bg-green-500 hover:bg-green-600' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
                       data-testid="button-share-whatsapp"
                     >
-                      <MessageCircle size={16} /> Enviar
-                    </a>
+                      {pdfGenerating ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />}
+                      {pdfGenerating ? '...' : 'Enviar PDF'}
+                    </button>
                   </div>
+                  <p className="text-xs text-muted-foreground">En móvil comparte el PDF directo; en PC descarga el PDF y abre WhatsApp.</p>
                 </div>
 
                 {/* Email */}
@@ -895,16 +1035,25 @@ export default function POSPage() {
                   </div>
                 </div>
 
-                {/* Print — only if at least one contact entered */}
-                {canPrint && (
+                {/* Descargar PDF + Imprimir */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleDownloadPDF}
+                    disabled={pdfGenerating}
+                    className="flex-1 py-3 rounded-2xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 flex items-center justify-center gap-2 interactive-btn"
+                    data-testid="button-descargar-pdf"
+                  >
+                    {pdfGenerating ? <Loader2 size={18} className="animate-spin" /> : <Printer size={18} />}
+                    Descargar PDF
+                  </button>
                   <button
                     onClick={() => setTimeout(() => window.print(), 100)}
-                    className="w-full py-3 rounded-2xl font-bold bg-muted text-foreground hover:bg-muted/80 flex items-center justify-center gap-2 interactive-btn"
+                    className="flex-1 py-3 rounded-2xl font-bold bg-muted text-foreground hover:bg-muted/80 flex items-center justify-center gap-2 interactive-btn"
                     data-testid="button-imprimir"
                   >
-                    <Printer size={18} /> Imprimir / Generar PDF
+                    <Printer size={18} /> Imprimir
                   </button>
-                )}
+                </div>
 
                 <button
                   onClick={() => { setIsShareOpen(false); setReceiptData(null); }}
@@ -923,7 +1072,7 @@ export default function POSPage() {
       {receiptData && (
         <div className="hidden print:block fixed inset-0 bg-white p-6 text-black text-sm font-mono" style={{ fontFamily: 'monospace' }}>
           <div className="text-center mb-4">
-            <h1 className="text-xl font-black">FARMACIA WEB</h1>
+            <h1 className="text-xl font-black">FARMACIA LA PABLO VI</h1>
             <p className="text-xs">{receiptData.fecha}</p>
             {receiptData.clienteNombre && <p className="text-xs">Cliente: {receiptData.clienteNombre}</p>}
             <div className="border-t border-b border-black my-2 py-1 text-center text-xs">— COMPROBANTE DE VENTA —</div>
