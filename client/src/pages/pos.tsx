@@ -540,35 +540,22 @@ export default function POSPage() {
   };
 
   const handleShareWhatsApp = async () => {
-    const waNum = shareWhatsapp.replace(/\D/g, '');
     setPdfGenerating(true);
     try {
       const blob = await generateReceiptPDF();
       if (!blob) return;
-      const file = new File([blob], `recibo-farmacia-${Date.now()}.pdf`, { type: 'application/pdf' });
+      const fileName = `recibo-farmacia-${Date.now()}.pdf`;
+      const file = new File([blob], fileName, { type: 'application/pdf' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: 'Recibo Farmacia La Pablo VI' });
       } else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = file.name;
+        a.download = fileName;
         a.click();
         URL.revokeObjectURL(url);
-        if (waNum) {
-          const lines = [
-            '🏥 *FARMACIA LA PABLO VI*',
-            `📅 ${receiptData?.fecha}`,
-            '─────────────────────',
-            ...(receiptData?.items.map(item =>
-              `• ${item.producto.Nombre}\n  ${item.cantidad} x Q${getPrecio(item.producto, item.tipoPrecio).toFixed(2)} = Q${(getPrecio(item.producto, item.tipoPrecio) * item.cantidad).toFixed(2)}`
-            ) ?? []),
-            '─────────────────────',
-            `*TOTAL: Q${receiptData?.total.toFixed(2)}*`,
-            '¡Gracias por su preferencia!',
-          ].filter(Boolean).join('\n');
-          window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(lines)}`, '_blank');
-        }
+        alert('PDF descargado. Ábrelo y compártelo manualmente en WhatsApp.');
       }
     } catch {
       handleDownloadPDF();
