@@ -9,6 +9,7 @@ import {
   Stethoscope,
   LogOut,
   UserCircle2,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { href: "/fiadores", label: "Fiadores", icon: Users },
   { href: "/balances", label: "Balances", icon: TrendingUp },
   { href: "/users", label: "Usuarios", icon: ShieldCheck, adminOnly: true },
+  { href: "/importar", label: "Importar Datos", icon: FileSpreadsheet, adminOnly: true },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {

@@ -165,6 +165,67 @@ export function registerSheetsRoutes(app: Express) {
     }
   });
 
+  // ==================== IMPORTAR VENTAS HISTÓRICAS ====================
+  app.post('/api/sheets/import-ventas', async (req, res) => {
+    try {
+      const { rows } = req.body as { rows: Array<{ cantidad: string; producto: string; total: string; vendedor: string; fecha: string }> };
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return res.status(400).json({ message: 'No hay filas para importar' });
+      }
+
+      const ventaRows = await leerHoja('Ventas');
+      const movRows = await leerHoja('Movimientos');
+      let lastVentaId = ventaRows.length > 1 ? parseInt(ventaRows[ventaRows.length - 1][0]) || 0 : 0;
+      let lastMovId = movRows.length > 1 ? parseInt(movRows[movRows.length - 1][0]) || 0 : 0;
+
+      let importadas = 0;
+      const errores: string[] = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const producto = (row.producto || '').trim();
+        const rawTotal = (row.total || '').replace(/,/g, '').replace(/Q/gi, '').trim();
+        const total = parseFloat(rawTotal);
+        if (!producto || isNaN(total) || total <= 0) {
+          errores.push(`Fila ${i + 1}: datos insuficientes (producto="${producto}", total="${row.total}")`);
+          continue;
+        }
+
+        const cantidad = parseInt(row.cantidad) || 1;
+        const vendedor = (row.vendedor || 'Importado').trim();
+        // Normalize fecha: accept d/m/y or m/d/y, store as dd/MM/yyyy HH:mm
+        let fecha = (row.fecha || '').trim();
+        if (!fecha) fecha = format(new Date(), 'dd/MM/yyyy HH:mm');
+        else {
+          const parts = fecha.split(/[\/\-]/);
+          if (parts.length >= 3) {
+            const day = parts[0].padStart(2, '0');
+            const month = parts[1].padStart(2, '0');
+            const year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+            fecha = `${day}/${month}/${year} 00:00`;
+          }
+        }
+
+        lastVentaId++;
+        const ventaId = lastVentaId.toString();
+        const precioUnit = (total / cantidad).toFixed(2);
+
+        await appendFila('Ventas', [ventaId, fecha, vendedor, 'Importado', 'contado', '', 'efectivo', total.toFixed(2)]);
+        await appendFila('Detalle_Venta', [ventaId, `IMP-${ventaId}`, producto, 'unidad', cantidad, precioUnit, total.toFixed(2), '0', '0']);
+
+        lastMovId++;
+        await appendFila('Movimientos', [lastMovId, fecha, 'ingreso', `Venta importada #${ventaId} - ${producto}`, total.toFixed(2), vendedor, ventaId]);
+
+        importadas++;
+      }
+
+      res.json({ importadas, errores, total: rows.length });
+    } catch (err: any) {
+      console.error('Error importando ventas:', err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // ==================== MOVIMIENTOS ====================
   app.get('/api/sheets/movimientos', async (req, res) => {
     try {
