@@ -1,0 +1,4 @@
+Venta_ID,Producto_ID,Nombre,TipoPrecio,Cantidad,PrecioUnitario,Subtotal,CostoUnitario,Utilidad
+1,IMP-1,Acetaminofén,unidad,1,25.00,25.00,0,0
+2,IMP-2,Amoxicilina,unidad,1,45.00,45.00,0,0
+3,IMP-3,Agua Oxigenada,unidad,2,6.25,12.50,0,0

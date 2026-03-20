@@ -1,0 +1,14 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "_mm2BQV_rx576q8hQSmBu"
+uri = "file://plantillas/Ventas_plantilla.csv"
+type = "table"
+title = "Plantilla — Hoja Ventas"
+
+[[outputs]]
+id = "nQgSxP-esHuWC992mF89k"
+uri = "file://plantillas/Detalle_Venta_plantilla.csv"
+type = "table"
+title = "Plantilla — Hoja Detalle_Venta"
