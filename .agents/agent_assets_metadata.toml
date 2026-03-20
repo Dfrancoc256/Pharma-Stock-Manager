@@ -12,3 +12,15 @@ id = "nQgSxP-esHuWC992mF89k"
 uri = "file://plantillas/Detalle_Venta_plantilla.csv"
 type = "table"
 title = "Plantilla — Hoja Detalle_Venta"
+
+[[outputs]]
+id = "4OHJUxPJtdIsbzNeCKmjB"
+uri = "file://plantillas/Ventas_importar.csv"
+type = "table"
+title = "Ventas_importar.csv — 386 filas (hoja Ventas)"
+
+[[outputs]]
+id = "KnMHtCW8dDAeDqwNTT4iu"
+uri = "file://plantillas/Detalle_Venta_importar.csv"
+type = "table"
+title = "Detalle_Venta_importar.csv — 386 filas (hoja Detalle_Venta)"

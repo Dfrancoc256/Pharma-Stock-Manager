@@ -1,0 +1,387 @@
+Venta_ID,Producto_ID,Nombre,TipoPrecio,Cantidad,PrecioUnitario,Subtotal,CostoUnitario,Utilidad
+1,IMP-1,dexketoprofeno bebible,unidad,1,10.00,10.00,0,0
+2,IMP-2,dropadex,unidad,1,10.00,10.00,0,0
+3,IMP-3,toma de azucar,unidad,1,10.00,10.00,0,0
+4,IMP-4,dorival,unidad,1,4.00,4.00,0,0
+5,IMP-5,tetraciclina,unidad,1,8.00,8.00,0,0
+6,IMP-6,acetaminofen,unidad,1,8.00,8.00,0,0
+7,IMP-7,jeringa y aguja,unidad,1,1.50,1.50,0,0
+8,IMP-8,piroxicam,unidad,1,6.00,6.00,0,0
+9,IMP-9,bonket,unidad,1,15.00,15.00,0,0
+10,IMP-10,dexa,unidad,1,8.00,8.00,0,0
+11,IMP-11,vitaminas,unidad,1,50.00,50.00,0,0
+12,IMP-12,trilox,unidad,1,23.00,23.00,0,0
+13,IMP-13,jeringa y aguja,unidad,1,1.50,1.50,0,0
+14,IMP-14,diclofenaco,unidad,1,7.00,7.00,0,0
+15,IMP-15,suero sobre,unidad,1,3.00,3.00,0,0
+16,IMP-16,multivitaminico para mujer,unidad,1,15.00,15.00,0,0
+17,IMP-17,blister de vitamina e,unidad,1,20.00,20.00,0,0
+18,IMP-18,scnidazol,unidad,1,10.00,10.00,0,0
+19,IMP-19,trimetropin+sulfametxol,unidad,1,18.00,18.00,0,0
+20,IMP-20,simeticona,unidad,1,20.00,20.00,0,0
+21,IMP-21,jeringas,unidad,3,1.00,3.00,0,0
+22,IMP-22,amixicilina,unidad,1,15.00,15.00,0,0
+23,IMP-23,pepto bismol,unidad,2,2.00,4.00,0,0
+24,IMP-24,sueros vitaminados,unidad,2,3.00,6.00,0,0
+25,IMP-25,dolo-nervisel,unidad,1,1.00,1.00,0,0
+26,IMP-26,acetaminofen,unidad,2,1.00,2.00,0,0
+27,IMP-27,mascarrilla,unidad,1,1.00,1.00,0,0
+28,IMP-28,dipirona,unidad,3,7.00,21.00,0,0
+29,IMP-29,dexa,unidad,3,8.00,24.00,0,0
+30,IMP-30,jeringas,unidad,3,1.00,3.00,0,0
+31,IMP-31,agujas,unidad,3,0.50,1.50,0,0
+32,IMP-32,ibuwin,unidad,4,1.50,6.00,0,0
+33,IMP-33,acetaminofen,unidad,1,1.00,1.00,0,0
+34,IMP-34,mascarrilla,unidad,2,1.00,2.00,0,0
+35,IMP-35,dolo calambril,unidad,1,12.00,12.00,0,0
+36,IMP-36,dolo-nervisel,unidad,1,20.00,20.00,0,0
+37,IMP-37,vitaflenaco,unidad,1,3.00,3.00,0,0
+38,IMP-38,bismutos,unidad,2,0.50,1.00,0,0
+39,IMP-39,zorritone,unidad,1,1.00,1.00,0,0
+40,IMP-40,virogrip,unidad,2,5.00,10.00,0,0
+41,IMP-41,dulces vick,unidad,3,1.00,3.00,0,0
+42,IMP-42,amoxi+acido,unidad,1,35.00,35.00,0,0
+43,IMP-43,zorritone,unidad,1,1.00,1.00,0,0
+44,IMP-44,jeringas,unidad,2,1.00,2.00,0,0
+45,IMP-45,pediaflora,unidad,1,14.00,14.00,0,0
+46,IMP-46,bismutos,unidad,6,0.50,3.00,0,0
+47,IMP-47,curitas,unidad,1,1.00,1.00,0,0
+48,IMP-48,pares de guantes,unidad,2,2.00,4.00,0,0
+49,IMP-49,hidravida,unidad,1,18.00,18.00,0,0
+50,IMP-50,acetaminofen,unidad,1,5.00,5.00,0,0
+51,IMP-51,ceftriaxona,unidad,1,17.00,17.00,0,0
+52,IMP-52,dipirona,unidad,1,7.00,7.00,0,0
+53,IMP-53,jeringa y aguja,unidad,1,2.00,2.00,0,0
+54,IMP-54,micropore,unidad,1,9.00,9.00,0,0
+55,IMP-55,dolo-nuerobión,unidad,1,3.00,3.00,0,0
+56,IMP-56,virogrip,unidad,1,5.00,5.00,0,0
+57,IMP-57,albendazol,unidad,1,8.00,8.00,0,0
+58,IMP-58,dolo-nervisel,unidad,1,20.00,20.00,0,0
+59,IMP-59,agujas,unidad,1,0.50,0.50,0,0
+60,IMP-60,vitamina c,unidad,2,10.00,20.00,0,0
+61,IMP-61,cacao,unidad,1,2.00,2.00,0,0
+62,IMP-62,vick,unidad,2,1.00,2.00,0,0
+63,IMP-63,desloratadina,unidad,1,8.00,8.00,0,0
+64,IMP-64,complejo b,unidad,2,10.00,20.00,0,0
+65,IMP-65,virogrip,unidad,1,5.00,5.00,0,0
+66,IMP-66,dolo-nervisel,unidad,1,10.00,10.00,0,0
+67,IMP-67,jeringas,unidad,4,1.00,4.00,0,0
+68,IMP-68,diclofenaco,unidad,2,1.00,2.00,0,0
+69,IMP-69,neomelubrina,unidad,1,4.00,4.00,0,0
+70,IMP-70,uniact 3 meses,unidad,1,50.00,50.00,0,0
+71,IMP-71,zorritones,unidad,1,1.00,1.00,0,0
+72,IMP-72,clotriplex,unidad,1,10.00,10.00,0,0
+73,IMP-73,trimetropin+sulfametxol,unidad,1,10.00,10.00,0,0
+74,IMP-74,ibuwin,unidad,2,1.50,3.00,0,0
+75,IMP-75,azitromicina,unidad,1,15.00,15.00,0,0
+76,IMP-76,blister de diclofenaco,unidad,1,7.00,7.00,0,0
+77,IMP-77,acetaminofen,unidad,2,5.00,10.00,0,0
+78,IMP-78,ceftriaxona,unidad,2,17.00,34.00,0,0
+79,IMP-79,inyectada,unidad,1,7.00,7.00,0,0
+80,IMP-80,jeringa y aguja,unidad,1,4.00,4.00,0,0
+81,IMP-81,exflu,unidad,1,36.00,36.00,0,0
+82,IMP-82,inyeccion,unidad,1,26.00,26.00,0,0
+83,IMP-83,dexketroprofeno,unidad,2,10.00,20.00,0,0
+84,IMP-84,dolo neurobion,unidad,1,3.50,3.50,0,0
+85,IMP-85,diclofenaco,unidad,2,1.00,2.00,0,0
+86,IMP-86,nervisel,unidad,1,14.00,14.00,0,0
+87,IMP-87,jeringa,unidad,1,1.00,1.00,0,0
+88,IMP-88,amicicilina+acido clavulanico,unidad,1,35.00,35.00,0,0
+89,IMP-89,inyectada,unidad,1,10.00,10.00,0,0
+90,IMP-90,diclofenaco gel,unidad,3,1.00,3.00,0,0
+91,IMP-91,blister de ibuprofeno gel,unidad,1,7.00,7.00,0,0
+92,IMP-92,tramadol,unidad,1,10.00,10.00,0,0
+93,IMP-93,dexketopofeno bebible,unidad,2,10.00,20.00,0,0
+94,IMP-94,blister de ibuwin forte,unidad,1,16.00,16.00,0,0
+95,IMP-95,ibuwin,unidad,2,1.50,3.00,0,0
+96,IMP-96,solución salina,unidad,1,15.00,15.00,0,0
+97,IMP-97,jeringa,unidad,1,1.50,1.50,0,0
+98,IMP-98,pares de guantes,unidad,2,2.00,4.00,0,0
+99,IMP-99,urin,unidad,1,5.00,5.00,0,0
+100,IMP-100,dexketoprofeno bebible,unidad,1,10.00,10.00,0,0
+101,IMP-101,suero,unidad,1,3.00,3.00,0,0
+102,IMP-102,dexketoprofeno bebible,unidad,1,10.00,10.00,0,0
+103,IMP-103,desloratadina,unidad,1,8.00,8.00,0,0
+104,IMP-104,virogrip,unidad,1,5.00,5.00,0,0
+105,IMP-105,IRS JR,unidad,1,65.00,65.00,0,0
+106,IMP-106,mascarrilla,unidad,3,1.00,3.00,0,0
+107,IMP-107,cofal,unidad,1,8.00,8.00,0,0
+108,IMP-108,alka seltzer,unidad,2,2.00,4.00,0,0
+109,IMP-109,virogrip,unidad,1,5.00,5.00,0,0
+110,IMP-110,sostengo,unidad,1,10.00,10.00,0,0
+111,IMP-111,virogrip,unidad,1,5.00,5.00,0,0
+112,IMP-112,tabcin,unidad,1,5.00,5.00,0,0
+113,IMP-113,tetraciclina,unidad,1,8.00,8.00,0,0
+114,IMP-114,alcohol,unidad,1,1.00,1.00,0,0
+115,IMP-115,prueba de embarazo,unidad,1,25.00,25.00,0,0
+116,IMP-116,vitaflenaco,unidad,2,3.00,6.00,0,0
+117,IMP-117,toma de presión,unidad,1,5.00,5.00,0,0
+118,IMP-118,pares de guantes,unidad,2,2.00,4.00,0,0
+119,IMP-119,nuerobión,unidad,1,15.00,15.00,0,0
+120,IMP-120,virogrip,unidad,1,5.00,5.00,0,0
+121,IMP-121,sanirenal,unidad,1,11.00,11.00,0,0
+122,IMP-122,enzitrol,unidad,1,10.00,10.00,0,0
+123,IMP-123,toma de presión,unidad,1,5.00,5.00,0,0
+124,IMP-124,jeringa,unidad,1,1.50,1.50,0,0
+125,IMP-125,URIN,unidad,1,5.00,5.00,0,0
+126,IMP-126,SUKLOL VIGOR,unidad,1,50.00,50.00,0,0
+127,IMP-127,Complejo b tbs,unidad,1,7.00,7.00,0,0
+128,IMP-128,ibuwin,unidad,2,1.50,3.00,0,0
+129,IMP-129,amoxi+acido,unidad,1,30.00,30.00,0,0
+130,IMP-130,pulmo calcio,unidad,1,8.00,8.00,0,0
+131,IMP-131,par de guantes,unidad,1,2.00,2.00,0,0
+132,IMP-132,pares de guantes,unidad,2,2.00,4.00,0,0
+133,IMP-133,neoferiba,unidad,1,35.00,35.00,0,0
+134,IMP-134,amoxi+acido,unidad,2,5.00,10.00,0,0
+135,IMP-135,dolo-nuerobión,unidad,1,3.00,3.00,0,0
+136,IMP-136,hidravida,unidad,1,18.00,18.00,0,0
+137,IMP-137,neomelubrina,unidad,1,2.00,2.00,0,0
+138,IMP-138,clotriplex,unidad,1,10.00,10.00,0,0
+139,IMP-139,clotriplex,unidad,1,10.00,10.00,0,0
+140,IMP-140,dolo-nervisel,unidad,1,20.00,20.00,0,0
+141,IMP-141,neurotropas,unidad,1,15.00,15.00,0,0
+142,IMP-142,jabon asepxia,unidad,1,35.00,35.00,0,0
+143,IMP-143,gasas,unidad,2,1.00,2.00,0,0
+144,IMP-144,lansoprazol,unidad,1,10.00,10.00,0,0
+145,IMP-145,hidravida,unidad,1,18.00,18.00,0,0
+146,IMP-146,Toallas,unidad,1,12.00,12.00,0,0
+147,IMP-147,clotriplex,unidad,1,10.00,10.00,0,0
+148,IMP-148,ibuwin,unidad,2,1.50,3.00,0,0
+149,IMP-149,jeringa,unidad,1,1.00,1.00,0,0
+150,IMP-150,blisteer de ibuprofeno,unidad,1,9.00,9.00,0,0
+151,IMP-151,blister de dolo neurobion,unidad,1,15.00,15.00,0,0
+152,IMP-152,dulces vick,unidad,5,1.00,5.00,0,0
+153,IMP-153,creama azufrada,unidad,1,10.00,10.00,0,0
+154,IMP-154,enterofermina,unidad,1,17.00,17.00,0,0
+155,IMP-155,blister de amoxicilina,unidad,3,7.00,21.00,0,0
+156,IMP-156,ibuprofeno,unidad,1,7.00,7.00,0,0
+157,IMP-157,amoxicilina,unidad,1,7.00,7.00,0,0
+158,IMP-158,prenatales,unidad,1,10.00,10.00,0,0
+159,IMP-159,dolo-nuerobión,unidad,1,95.00,95.00,0,0
+160,IMP-160,sueros vitaminados,unidad,2,3.00,6.00,0,0
+161,IMP-161,clotriplex,unidad,1,18.00,18.00,0,0
+162,IMP-162,sueros hidroxon,unidad,2,6.00,12.00,0,0
+163,IMP-163,bismutos,unidad,10,1.00,10.00,0,0
+164,IMP-164,sertal,unidad,2,2.00,4.00,0,0
+165,IMP-165,blister de alupurinol,unidad,1,10.00,10.00,0,0
+166,IMP-166,Neomunil,unidad,2,5.00,10.00,0,0
+167,IMP-167,dexketoprofeno,unidad,1,5.00,5.00,0,0
+168,IMP-168,suero sobre,unidad,1,3.00,3.00,0,0
+169,IMP-169,trimetropin+sulfametxol,unidad,1,10.00,10.00,0,0
+170,IMP-170,ibuwin,unidad,2,1.50,3.00,0,0
+171,IMP-171,acetaminofen,unidad,1,5.00,5.00,0,0
+172,IMP-172,mascarrilla,unidad,1,1.00,1.00,0,0
+173,IMP-173,lansoprazol,unidad,1,10.00,10.00,0,0
+174,IMP-174,dulces vick,unidad,5,1.00,5.00,0,0
+175,IMP-175,tabcin gripe y tos,unidad,4,2.50,10.00,0,0
+176,IMP-176,ceftriaxona,unidad,1,17.00,17.00,0,0
+177,IMP-177,dipirona,unidad,1,7.00,7.00,0,0
+178,IMP-178,jeringa y aguja,unidad,1,2.00,2.00,0,0
+179,IMP-179,hidravida,unidad,1,18.00,18.00,0,0
+180,IMP-180,coderpina,unidad,5,2.00,10.00,0,0
+181,IMP-181,esomprazol,unidad,1,10.00,10.00,0,0
+182,IMP-182,loperamida,unidad,1,11.00,11.00,0,0
+183,IMP-183,panadol ultra,unidad,1,2.50,2.50,0,0
+184,IMP-184,adec adulto,unidad,1,12.00,12.00,0,0
+185,IMP-185,jeringa y aguja,unidad,1,2.00,2.00,0,0
+186,IMP-186,ibuwin,unidad,2,1.50,3.00,0,0
+187,IMP-187,acido folico,unidad,1,6.00,6.00,0,0
+188,IMP-188,prenatales,unidad,1,10.00,10.00,0,0
+189,IMP-189,exflu,unidad,1,10.00,10.00,0,0
+190,IMP-190,sertal,unidad,2,2.00,4.00,0,0
+191,IMP-191,pares de guantes,unidad,2,2.00,4.00,0,0
+192,IMP-192,toma de azucar,unidad,1,10.00,10.00,0,0
+193,IMP-193,shampo piojina,unidad,1,15.00,15.00,0,0
+194,IMP-194,ibuprofeno,unidad,1,17.00,17.00,0,0
+195,IMP-195,paracetamol,unidad,1,7.00,7.00,0,0
+196,IMP-196,jeringa y aguja,unidad,1,2.00,2.00,0,0
+197,IMP-197,paracetamol,unidad,1,3.50,3.50,0,0
+198,IMP-198,pares de guantes,unidad,2,2.00,4.00,0,0
+199,IMP-199,pares de guantes,unidad,2,2.00,4.00,0,0
+200,IMP-200,blister de ibuwin forte,unidad,1,16.00,16.00,0,0
+201,IMP-201,ceftriaxona,unidad,2,17.00,34.00,0,0
+202,IMP-202,jeringas,unidad,2,1.00,2.00,0,0
+203,IMP-203,agujas,unidad,2,0.50,1.00,0,0
+204,IMP-204,suclalfato,unidad,1,5.00,5.00,0,0
+205,IMP-205,omeprazol,unidad,1,10.00,10.00,0,0
+206,IMP-206,dropa drex,unidad,2,5.00,10.00,0,0
+207,IMP-207,esomeprazol,unidad,6,1.00,6.00,0,0
+208,IMP-208,sal andrews,unidad,2,2.00,4.00,0,0
+209,IMP-209,suclalfato,unidad,1,5.00,5.00,0,0
+210,IMP-210,zorritones,unidad,20,0.50,10.00,0,0
+211,IMP-211,aspirinitas,unidad,3,2.00,6.00,0,0
+212,IMP-212,enterofermina,unidad,1,15.00,15.00,0,0
+213,IMP-213,simeticona,unidad,1,10.00,10.00,0,0
+214,IMP-214,sertal,unidad,1,5.00,5.00,0,0
+215,IMP-215,virogrip,unidad,2,5.00,10.00,0,0
+216,IMP-216,sal andrews,unidad,1,2.50,2.50,0,0
+217,IMP-217,ibuwin,unidad,2,1.50,3.00,0,0
+218,IMP-218,sertal,unidad,1,2.00,2.00,0,0
+219,IMP-219,dolocalambril,unidad,1,12.00,12.00,0,0
+220,IMP-220,solución salina,unidad,1,12.00,12.00,0,0
+221,IMP-221,guayatos,unidad,1,16.00,16.00,0,0
+222,IMP-222,virogrip,unidad,1,5.00,5.00,0,0
+223,IMP-223,hartmant,unidad,2,25.00,50.00,0,0
+224,IMP-224,venoset,unidad,1,7.00,7.00,0,0
+225,IMP-225,cateter,unidad,1,9.00,9.00,0,0
+226,IMP-226,paracetamol,unidad,4,3.50,14.00,0,0
+227,IMP-227,clotriplex,unidad,1,10.00,10.00,0,0
+228,IMP-228,jeringas,unidad,3,1.00,3.00,0,0
+229,IMP-229,neomelubrina,unidad,1,4.00,4.00,0,0
+230,IMP-230,clotriplex,unidad,1,10.00,10.00,0,0
+231,IMP-231,jarabe para la tos,unidad,1,22.00,22.00,0,0
+232,IMP-232,blister de neumelubrina,unidad,1,5.00,5.00,0,0
+233,IMP-233,hidravida,unidad,1,18.00,18.00,0,0
+234,IMP-234,lansoprazol,unidad,1,9.00,9.00,0,0
+235,IMP-235,sucrassyl,unidad,2,5.00,10.00,0,0
+236,IMP-236,bolsas de algodón,unidad,3,1.00,3.00,0,0
+237,IMP-237,ibuwin,unidad,2,1.50,3.00,0,0
+238,IMP-238,dulces vick,unidad,5,1.00,5.00,0,0
+239,IMP-239,virogrip jarabe multisintoma,unidad,1,20.00,20.00,0,0
+240,IMP-240,sueros,unidad,3,3.00,9.00,0,0
+241,IMP-241,dipirona,unidad,1,7.00,7.00,0,0
+242,IMP-242,jeringa y aguja,unidad,1,1.50,1.50,0,0
+243,IMP-243,paracetamol,unidad,3,3.50,10.50,0,0
+244,IMP-244,hidravida,unidad,1,18.00,18.00,0,0
+245,IMP-245,suero,unidad,1,3.00,3.00,0,0
+246,IMP-246,sueros,unidad,3,2.00,6.00,0,0
+247,IMP-247,termometro,unidad,1,15.00,15.00,0,0
+248,IMP-248,vitaflenaco,unidad,2,3.00,6.00,0,0
+249,IMP-249,cofal forte,unidad,1,8.00,8.00,0,0
+250,IMP-250,cloromilan,unidad,1,4.00,4.00,0,0
+251,IMP-251,clorferinamina,unidad,1,16.00,16.00,0,0
+252,IMP-252,tramadol,unidad,5,1.00,5.00,0,0
+253,IMP-253,exflu,unidad,1,36.00,36.00,0,0
+254,IMP-254,complejo B,unidad,2,10.00,20.00,0,0
+255,IMP-255,paracetamol,unidad,1,7.00,7.00,0,0
+256,IMP-256,toma de presión,unidad,1,5.00,5.00,0,0
+257,IMP-257,ballena azul,unidad,1,50.00,50.00,0,0
+258,IMP-258,Deka C,unidad,1,85.00,85.00,0,0
+259,IMP-259,Panclasa,unidad,1,124.00,124.00,0,0
+260,IMP-260,ibuwin,unidad,2,1.50,3.00,0,0
+261,IMP-261,jeringas 10,unidad,1,3.00,3.00,0,0
+262,IMP-262,jeringas 5,unidad,2,1.00,2.00,0,0
+263,IMP-263,trimetropin+sulfametxol,unidad,1,10.00,10.00,0,0
+264,IMP-264,sueros vitaminados,unidad,2,3.00,6.00,0,0
+265,IMP-265,zorritones,unidad,3,1.00,3.00,0,0
+266,IMP-266,prendisona,unidad,1,13.00,13.00,0,0
+267,IMP-267,tancin día,unidad,2,5.00,10.00,0,0
+268,IMP-268,coderpina,unidad,5,2.00,10.00,0,0
+269,IMP-269,hartmant,unidad,1,25.00,25.00,0,0
+270,IMP-270,venoset,unidad,1,7.00,7.00,0,0
+271,IMP-271,angio,unidad,1,9.00,9.00,0,0
+272,IMP-272,micropore,unidad,1,13.00,13.00,0,0
+273,IMP-273,jeringa y aguaja,unidad,1,1.00,1.00,0,0
+274,IMP-274,ibuwin,unidad,1,3.00,3.00,0,0
+275,IMP-275,hidravida,unidad,1,18.00,18.00,0,0
+276,IMP-276,metformina,unidad,1,10.00,10.00,0,0
+277,IMP-277,secnidazol,unidad,3,10.00,30.00,0,0
+278,IMP-278,blister de amoxicilina,unidad,1,7.00,7.00,0,0
+279,IMP-279,hidravida,unidad,1,18.00,18.00,0,0
+280,IMP-280,principal forte,unidad,1,25.00,25.00,0,0
+281,IMP-281,jeringa y aguja,unidad,1,1.50,1.50,0,0
+282,IMP-282,viro grip,unidad,6,5.00,30.00,0,0
+283,IMP-283,mentol,unidad,1,4.00,4.00,0,0
+284,IMP-284,ibuwin,unidad,1,2.00,2.00,0,0
+285,IMP-285,ibuwin,unidad,1,1.50,1.50,0,0
+286,IMP-286,hidravida,unidad,1,18.00,18.00,0,0
+287,IMP-287,Dexketoprofeno,unidad,1,5.00,5.00,0,0
+288,IMP-288,esomeprazol,unidad,5,1.00,5.00,0,0
+289,IMP-289,bismutos,unidad,5,1.00,5.00,0,0
+290,IMP-290,alcohol,unidad,1,3.00,3.00,0,0
+291,IMP-291,amoxi,unidad,2,5.00,10.00,0,0
+292,IMP-292,coderpina,unidad,2,2.00,4.00,0,0
+293,IMP-293,virogrip,unidad,1,5.00,5.00,0,0
+294,IMP-294,ciruelax,unidad,1,40.00,40.00,0,0
+295,IMP-295,nuerobión,unidad,1,95.00,95.00,0,0
+296,IMP-296,toma azucar,unidad,1,10.00,10.00,0,0
+297,IMP-297,acetaminofen,unidad,1,14.00,14.00,0,0
+298,IMP-298,guayatos,unidad,1,18.00,18.00,0,0
+299,IMP-299,tabcin gripe y tos,unidad,2,6.00,12.00,0,0
+300,IMP-300,amo+acido,unidad,2,5.00,10.00,0,0
+301,IMP-301,ceftriaxona,unidad,1,17.00,17.00,0,0
+302,IMP-302,jeringa,unidad,1,1.00,1.00,0,0
+303,IMP-303,dolo-nervisel,unidad,1,10.00,10.00,0,0
+304,IMP-304,diclo azul,unidad,1,7.00,7.00,0,0
+305,IMP-305,enantuym,unidad,1,17.00,17.00,0,0
+306,IMP-306,dolica,unidad,1,11.00,11.00,0,0
+307,IMP-307,clotriplex,unidad,1,10.00,10.00,0,0
+308,IMP-308,esomeprazol,unidad,1,10.00,10.00,0,0
+309,IMP-309,hidravida,unidad,1,18.00,18.00,0,0
+310,IMP-310,fracos heces,unidad,1,5.00,5.00,0,0
+311,IMP-311,dexketoprofeno,unidad,1,5.00,5.00,0,0
+312,IMP-312,paracetamol,unidad,3,3.50,10.50,0,0
+313,IMP-313,vitamina E,unidad,1,20.00,20.00,0,0
+314,IMP-314,zorritones,unidad,5,1.00,5.00,0,0
+315,IMP-315,pedialite,unidad,1,23.00,23.00,0,0
+316,IMP-316,mascarrilla,unidad,2,1.00,2.00,0,0
+317,IMP-317,bismutos,unidad,10,0.50,5.00,0,0
+318,IMP-318,acetaminofen,unidad,1,5.00,5.00,0,0
+319,IMP-319,metronidazol,unidad,1,1.00,1.00,0,0
+320,IMP-320,suero vitaminado,unidad,1,3.00,3.00,0,0
+321,IMP-321,toallas humedas,unidad,1,15.00,15.00,0,0
+322,IMP-322,tetraciclina,unidad,1,8.00,8.00,0,0
+323,IMP-323,gargadin,unidad,1,14.00,14.00,0,0
+324,IMP-324,pulmitrin,unidad,1,8.00,8.00,0,0
+325,IMP-325,tramadol,unidad,5,1.00,5.00,0,0
+326,IMP-326,aguja oxigenada,unidad,2,2.50,5.00,0,0
+327,IMP-327,virogrio,unidad,1,5.00,5.00,0,0
+328,IMP-328,tabcib eferv,unidad,2,2.50,5.00,0,0
+329,IMP-329,sukrol,unidad,1,45.00,45.00,0,0
+330,IMP-330,clorfenicol,unidad,1,16.00,16.00,0,0
+331,IMP-331,cordepina,unidad,4,2.00,8.00,0,0
+332,IMP-332,gargandin,unidad,1,13.50,13.50,0,0
+333,IMP-333,citriaxona,unidad,1,17.00,17.00,0,0
+334,IMP-334,jeringa,unidad,1,1.50,1.50,0,0
+335,IMP-335,agujas,unidad,2,0.50,1.00,0,0
+336,IMP-336,jeringas,unidad,2,1.00,2.00,0,0
+337,IMP-337,panadol multi,unidad,5,3.50,17.50,0,0
+338,IMP-338,zorritones,unidad,5,0.50,2.50,0,0
+339,IMP-339,ibuwin,unidad,2,1.50,3.00,0,0
+340,IMP-340,loperamida,unidad,1,11.00,11.00,0,0
+341,IMP-341,virogrip,unidad,1,5.00,5.00,0,0
+342,IMP-342,ibuprofeno,unidad,1,9.00,9.00,0,0
+343,IMP-343,tramadol,unidad,2,10.00,20.00,0,0
+344,IMP-344,ibuprofeno,unidad,1,9.00,9.00,0,0
+345,IMP-345,ibuwin,unidad,1,2.00,2.00,0,0
+346,IMP-346,aoxicilina,unidad,1,7.00,7.00,0,0
+347,IMP-347,vicks,unidad,1,10.00,10.00,0,0
+348,IMP-348,enterofermina,unidad,1,15.00,15.00,0,0
+349,IMP-349,ibuwin,unidad,1,2.00,2.00,0,0
+350,IMP-350,nauseol,unidad,2,1.00,2.00,0,0
+351,IMP-351,dolo-nuerotropas,unidad,1,10.00,10.00,0,0
+352,IMP-352,jeringa,unidad,1,1.50,1.50,0,0
+353,IMP-353,uniact 3 meses,unidad,1,50.00,50.00,0,0
+354,IMP-354,Suero en polvo,unidad,1,6.00,6.00,0,0
+355,IMP-355,ibuwin,unidad,2,1.50,3.00,0,0
+356,IMP-356,blister ibuwin,unidad,1,13.00,13.00,0,0
+357,IMP-357,dolo neurobion,unidad,2,2.00,4.00,0,0
+358,IMP-358,ibuwin,unidad,4,2.00,8.00,0,0
+359,IMP-359,acetaminofen,unidad,1,5.00,5.00,0,0
+360,IMP-360,Flufinn,unidad,4,1.00,4.00,0,0
+361,IMP-361,dolo-nervisel,unidad,1,20.00,20.00,0,0
+362,IMP-362,urin,unidad,2,5.00,10.00,0,0
+363,IMP-363,pomada la campana,unidad,1,12.00,12.00,0,0
+364,IMP-364,lagrimitas,unidad,2,2.00,4.00,0,0
+365,IMP-365,hidravida,unidad,1,18.00,18.00,0,0
+366,IMP-366,lansoprazol,unidad,1,9.00,9.00,0,0
+367,IMP-367,sertal,unidad,3,2.00,6.00,0,0
+368,IMP-368,urin,unidad,4,5.00,20.00,0,0
+369,IMP-369,sal andrews,unidad,5,2.00,10.00,0,0
+370,IMP-370,alka seltzer,unidad,5,2.00,10.00,0,0
+371,IMP-371,jeringas,unidad,2,1.50,3.00,0,0
+372,IMP-372,fracos heces,unidad,1,5.00,5.00,0,0
+373,IMP-373,fluconazol,unidad,1,10.00,10.00,0,0
+374,IMP-374,termometro,unidad,1,16.00,16.00,0,0
+375,IMP-375,gargadin,unidad,1,13.50,13.50,0,0
+376,IMP-376,blister tramadol,unidad,1,10.00,10.00,0,0
+377,IMP-377,ojo de aguila,unidad,1,13.00,13.00,0,0
+378,IMP-378,toma de presión,unidad,1,5.00,5.00,0,0
+379,IMP-379,losartan,unidad,1,22.00,22.00,0,0
+380,IMP-380,hidroclorotizada,unidad,1,7.00,7.00,0,0
+381,IMP-381,lagrimitas,unidad,3,1.50,4.50,0,0
+382,IMP-382,propanolol,unidad,1,10.00,10.00,0,0
+383,IMP-383,loperamida,unidad,1,6.00,6.00,0,0
+384,IMP-384,cloferanicol gotas,unidad,1,18.00,18.00,0,0
+385,IMP-385,coderpina,unidad,5,2.00,10.00,0,0
+386,IMP-386,virogrip,unidad,2,5.00,10.00,0,0
