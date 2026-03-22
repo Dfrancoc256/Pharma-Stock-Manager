@@ -207,12 +207,12 @@ export async function getFiadores() {
 }
 
 export async function createFiadorSheet(params: {
-  nombre: string; telefono: string; direccion: string; limiteCredito?: number;
+  nombre: string; telefono: string; direccion: string; limiteCredito?: number; saldoInicial?: number;
 }) {
   const rows = await leerHoja('Fiadores');
   const lastId = rows.length > 1 ? parseInt(rows[rows.length - 1][0]) || 0 : 0;
   const newId = lastId + 1;
-  await appendFila('Fiadores', [newId, params.nombre, params.telefono, params.direccion, params.limiteCredito ?? 500, 0, 'TRUE']);
+  await appendFila('Fiadores', [newId, params.nombre, params.telefono, params.direccion, params.limiteCredito ?? 0, params.saldoInicial ?? 0, 'TRUE']);
   return { id: newId, ...params };
 }
 

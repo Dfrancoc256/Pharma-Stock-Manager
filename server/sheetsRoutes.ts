@@ -270,12 +270,13 @@ export function registerSheetsRoutes(app: Express) {
 
   app.post('/api/sheets/fiadores', async (req, res) => {
     try {
-      const { nombre, telefono, direccion, limiteCredito } = req.body;
+      const { nombre, telefono, direccion, limiteCredito, saldoInicial } = req.body;
       const result = await createFiadorSheet({
         nombre,
         telefono: telefono || '',
         direccion: direccion || '',
-        limiteCredito: parseFloat(limiteCredito) || 500,
+        limiteCredito: parseFloat(limiteCredito) || 0,
+        saldoInicial: parseFloat(saldoInicial) || 0,
       });
       res.status(201).json(result);
     } catch (err: any) {

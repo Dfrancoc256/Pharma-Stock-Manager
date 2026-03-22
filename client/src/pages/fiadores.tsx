@@ -14,6 +14,7 @@ export default function FiadoresPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [monto, setMonto] = useState('');
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const { data: fiadores = [], isLoading } = useQuery<Fiador[]>({
@@ -26,7 +27,7 @@ export default function FiadoresPage() {
   });
 
   const createFiador = useMutation({
-    mutationFn: async (body: { nombre: string; telefono: string }) => {
+    mutationFn: async (body: { nombre: string; telefono: string; saldoInicial: number }) => {
       const res = await fetch('/api/sheets/fiadores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -39,7 +40,7 @@ export default function FiadoresPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sheets/fiadores'] });
       setIsAddOpen(false);
-      setNombre(''); setTelefono('');
+      setNombre(''); setTelefono(''); setMonto('');
     }
   });
 
@@ -162,7 +163,10 @@ export default function FiadoresPage() {
               <button onClick={() => setIsAddOpen(false)} className="p-2 rounded-xl hover:bg-black/5"><X size={18} /></button>
             </div>
             <form
-              onSubmit={e => { e.preventDefault(); createFiador.mutate({ nombre, telefono }); }}
+              onSubmit={e => {
+                e.preventDefault();
+                createFiador.mutate({ nombre, telefono, saldoInicial: parseFloat(monto) || 0 });
+              }}
               className="space-y-4"
             >
               <div>
@@ -172,6 +176,23 @@ export default function FiadoresPage() {
               <div>
                 <label className="block text-sm font-semibold mb-1">Teléfono</label>
                 <input className="input-field" value={telefono} onChange={e => setTelefono(e.target.value)} data-testid="input-telefono-fiador" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Monto que debe (Q)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">Q</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    className="input-field pl-8"
+                    value={monto}
+                    onChange={e => setMonto(e.target.value)}
+                    data-testid="input-monto-fiador"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Deja en 0 si aún no debe nada</p>
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setIsAddOpen(false)} className="flex-1 py-3 rounded-xl font-bold bg-muted text-muted-foreground interactive-btn">Cancelar</button>
