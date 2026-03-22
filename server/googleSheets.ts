@@ -43,6 +43,8 @@ export async function leerHoja(nombreHoja: string): Promise<string[][]> {
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: nombreHoja,
+    valueRenderOption: 'FORMATTED_VALUE',
+    dateTimeRenderOption: 'FORMATTED_STRING',
   });
   const data = (response.data.values as string[][]) || [];
   sheetCache.set(nombreHoja, { data, ts: Date.now() });

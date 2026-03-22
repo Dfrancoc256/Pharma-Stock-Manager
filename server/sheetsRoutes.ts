@@ -19,6 +19,42 @@ function fechaGuatemala(): string {
   return format(nowGuatemala(), 'dd/MM/yyyy HH:mm');
 }
 
+/**
+ * Extrae la parte de fecha (sin hora) de un valor de celda de Google Sheets.
+ * Maneja texto "DD/MM/YYYY HH:MM", números seriales de Sheets (45738.04...) y strings ISO.
+ * Siempre devuelve "DD/MM/YYYY" o null si no se puede parsear.
+ */
+function parsearFechaSheets(valor: string | undefined): string | null {
+  if (!valor) return null;
+  const v = valor.trim();
+
+  // Número serial de Google Sheets (fecha almacenada como número, e.g. "45738.04375")
+  if (/^\d+(\.\d+)?$/.test(v)) {
+    const serial = parseFloat(v);
+    // Google Sheets serial: días desde 30/12/1899
+    const ms = (serial - 25569) * 86400000; // 25569 = días entre 30/12/1899 y 01/01/1970
+    const d = new Date(ms);
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const yyyy = d.getUTCFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  // Formato DD/MM/YYYY (con o sin hora)
+  const match = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (match) {
+    const dd = match[1].padStart(2, '0');
+    const mm = match[2].padStart(2, '0');
+    return `${dd}/${mm}/${match[3]}`;
+  }
+
+  // Formato ISO YYYY-MM-DD
+  const iso = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+
+  return null;
+}
+
 export function registerSheetsRoutes(app: Express) {
 
   // ==================== STOCK ====================
@@ -391,8 +427,9 @@ export function registerSheetsRoutes(app: Express) {
       }
       for (const m of movs) {
         if (!m[1]) continue;
-        const [datePart] = m[1].split(' ');
-        const [d, mo] = datePart.split('/');
+        const fechaStr = parsearFechaSheets(m[1]);
+        if (!fechaStr) continue;
+        const [d, mo] = fechaStr.split('/');
         const key = `${d.padStart(2, '0')}/${mo.padStart(2, '0')}`;
         if (diasMap[key]) {
           if (m[2] === 'ingreso') diasMap[key].ingresos += parseFloat(m[4] || '0');
@@ -461,8 +498,9 @@ export function registerSheetsRoutes(app: Express) {
       }
       for (const m of movs) {
         if (!m[1] || m[2] !== 'ingreso') continue;
-        const [datePart] = m[1].split(' ');
-        const parts = datePart.split('/');
+        const fechaStr = parsearFechaSheets(m[1]);
+        if (!fechaStr) continue;
+        const parts = fechaStr.split('/');
         if (parts.length < 3) continue;
         const [dd, mm, yyyy] = parts;
         const key = `${yyyy}-${mm.padStart(2, '0')}`;
@@ -481,7 +519,7 @@ export function registerSheetsRoutes(app: Express) {
 
       // Ventas fiado cobradas hoy (contado ventas hoy = caja real hoy)
       const hoyStr = `${String(hoy.getDate()).padStart(2, '0')}/${String(hoy.getMonth() + 1).padStart(2, '0')}/${hoy.getFullYear()}`;
-      const ventasHoyRows = ventasRows2.filter((v: string[]) => v[1]?.startsWith(hoyStr));
+      const ventasHoyRows = ventasRows2.filter((v: string[]) => parsearFechaSheets(v[1]) === hoyStr);
       const ventasContadoHoy = ventasHoyRows.filter((v: string[]) => v[4] === 'contado').reduce((acc: number, v: string[]) => acc + parseFloat(v[7] || '0'), 0);
       const ventasFiadoHoy = ventasHoyRows.filter((v: string[]) => v[4] === 'fiado').reduce((acc: number, v: string[]) => acc + parseFloat(v[7] || '0'), 0);
 
@@ -560,8 +598,9 @@ export function registerSheetsRoutes(app: Express) {
       if (desde || hasta) {
         filtered = movs.filter(r => {
           if (!r[1]) return false;
-          const [datePart] = r[1].split(' ');
-          const [d, m, y] = datePart.split('/');
+          const fechaStr = parsearFechaSheets(r[1]);
+          if (!fechaStr) return false;
+          const [d, m, y] = fechaStr.split('/');
           const fecha = new Date(`${y}-${m}-${d}`);
           if (desde && fecha < new Date(desde as string)) return false;
           if (hasta && fecha > new Date(hasta as string)) return false;
