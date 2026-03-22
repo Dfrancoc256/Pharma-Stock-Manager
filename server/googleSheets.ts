@@ -4,7 +4,15 @@ import { google } from 'googleapis';
 
 const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID!;
 
+// ---- AUTH CLIENT CACHE (avoid re-authenticating on every request) ----
+let _sheetClient: any = null;
+let _clientTs = 0;
+const CLIENT_TTL_MS = 60 * 60 * 1000; // reuse for 1 hour
+
 async function getSheetClient() {
+  if (_sheetClient && Date.now() - _clientTs < CLIENT_TTL_MS) {
+    return _sheetClient;
+  }
   const auth = new google.auth.GoogleAuth({
     credentials: {
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
@@ -12,20 +20,36 @@ async function getSheetClient() {
     },
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
-  return google.sheets({ version: 'v4', auth });
+  _sheetClient = google.sheets({ version: 'v4', auth });
+  _clientTs = Date.now();
+  return _sheetClient;
 }
 
-// ---- READ ----
+// ---- IN-MEMORY SHEET CACHE (30 second TTL per sheet) ----
+const sheetCache = new Map<string, { data: string[][]; ts: number }>();
+const CACHE_TTL_MS = 30_000;
+
+function invalidarCache(...hojas: string[]) {
+  hojas.forEach(h => sheetCache.delete(h));
+}
+
+// ---- READ (with cache) ----
 export async function leerHoja(nombreHoja: string): Promise<string[][]> {
+  const cached = sheetCache.get(nombreHoja);
+  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+    return cached.data;
+  }
   const sheets = await getSheetClient();
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: nombreHoja,
   });
-  return (response.data.values as string[][]) || [];
+  const data = (response.data.values as string[][]) || [];
+  sheetCache.set(nombreHoja, { data, ts: Date.now() });
+  return data;
 }
 
-// ---- APPEND ----
+// ---- APPEND (invalidates cache for that sheet) ----
 export async function appendFila(nombreHoja: string, datos: any[]): Promise<void> {
   const sheets = await getSheetClient();
   await sheets.spreadsheets.values.append({
@@ -34,9 +58,10 @@ export async function appendFila(nombreHoja: string, datos: any[]): Promise<void
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [datos] },
   });
+  invalidarCache(nombreHoja);
 }
 
-// ---- UPDATE RANGE ----
+// ---- UPDATE RANGE (invalidates cache for that sheet) ----
 export async function updateRango(rango: string, datos: any[][]): Promise<void> {
   const sheets = await getSheetClient();
   await sheets.spreadsheets.values.update({
@@ -45,6 +70,9 @@ export async function updateRango(rango: string, datos: any[][]): Promise<void> 
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: datos },
   });
+  // Extract sheet name from range (e.g. "Stock!K5" → "Stock")
+  const hoja = rango.split('!')[0];
+  invalidarCache(hoja);
 }
 
 // ---- FIND ROW INDEX BY VALUE ----
@@ -234,4 +262,3 @@ export async function updateUsuarioSheet(usuario: string, updates: { pass?: stri
     }
   }
 }
-

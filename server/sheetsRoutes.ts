@@ -10,6 +10,12 @@ import {
 } from "./googleSheets";
 import { format } from "date-fns";
 
+// Guatemala is UTC-6, no daylight saving time
+function fechaGuatemala(): string {
+  const now = new Date(Date.now() - 6 * 60 * 60 * 1000);
+  return format(now, 'dd/MM/yyyy HH:mm');
+}
+
 export function registerSheetsRoutes(app: Express) {
 
   // ==================== STOCK ====================
@@ -106,7 +112,7 @@ export function registerSheetsRoutes(app: Express) {
       const { cliente, tipo, fiadorId, metodoPago, total, items } = req.body;
       const user = (req as any).user;
       const usuario = user?.email || user?.firstName || 'Sistema';
-      const fecha = format(new Date(), 'dd/MM/yyyy HH:mm');
+      const fecha = fechaGuatemala();
 
       // Create the sale
       const ventaRows = await leerHoja('Ventas');
@@ -195,7 +201,7 @@ export function registerSheetsRoutes(app: Express) {
         const vendedor = (row.vendedor || 'Importado').trim();
         // Normalize fecha: accept d/m/y or m/d/y, store as dd/MM/yyyy HH:mm
         let fecha = (row.fecha || '').trim();
-        if (!fecha) fecha = format(new Date(), 'dd/MM/yyyy HH:mm');
+        if (!fecha) fecha = fechaGuatemala();
         else {
           const parts = fecha.split(/[\/\-]/);
           if (parts.length >= 3) {
@@ -241,7 +247,7 @@ export function registerSheetsRoutes(app: Express) {
       const { tipo, concepto, monto, referencia } = req.body;
       const user = (req as any).user;
       const usuario = user?.email || user?.firstName || 'Sistema';
-      const fecha = format(new Date(), 'dd/MM/yyyy HH:mm');
+      const fecha = fechaGuatemala();
       const result = await createMovimientoSheet({ fecha, tipo, concepto, monto, usuario, referencia: referencia || '' });
       res.status(201).json(result);
     } catch (err: any) {
