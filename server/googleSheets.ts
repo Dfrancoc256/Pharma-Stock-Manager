@@ -56,6 +56,7 @@ export async function appendFila(nombreHoja: string, datos: any[]): Promise<void
     spreadsheetId: SPREADSHEET_ID,
     range: nombreHoja,
     valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS', // always inserts a new row, never overwrites
     requestBody: { values: [datos] },
   });
   invalidarCache(nombreHoja);
