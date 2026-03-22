@@ -7,15 +7,20 @@ import {
   X, ShoppingBag, Receipt, User, Calendar, Hash,
 } from "lucide-react";
 
+interface ItemVenta {
+  nombre: string; cantidad: string; precioUnitario: string;
+  subtotal: string; tipoPrecio: string;
+}
+
+interface VentaInfo {
+  cliente: string; metodoPago: string; tipo: string; total: string;
+}
+
 interface Movimiento {
   id: string; fecha: string; tipo: string; concepto: string;
   monto: string; usuario: string; referencia: string;
-}
-
-interface VentaDetalle {
-  ID_Venta: string; Fecha: string; Usuario: string; Cliente: string;
-  Tipo: string; MetodoPago: string; Total: string;
-  items: { Nombre: string; Cantidad: string; PrecioUnitario: string; Subtotal: string; TipoPrecio: string }[];
+  items: ItemVenta[];
+  venta: VentaInfo | null;
 }
 
 interface BalancesData {
@@ -43,21 +48,6 @@ export default function BalancesPage() {
       if (!res.ok) throw new Error('Error cargando balances');
       return res.json();
     },
-  });
-
-  // Fetch venta detail only when selected movement has a numeric referencia
-  const ventaId = selectedMov?.referencia && /^\d+$/.test(selectedMov.referencia.trim())
-    ? selectedMov.referencia.trim()
-    : null;
-
-  const { data: ventaDetalle, isLoading: loadingVenta } = useQuery<VentaDetalle>({
-    queryKey: ['/api/sheets/ventas', ventaId],
-    queryFn: async () => {
-      const res = await fetch(`/api/sheets/ventas/${ventaId}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('No se encontró la venta');
-      return res.json();
-    },
-    enabled: !!ventaId,
   });
 
   const createMov = useMutation({
@@ -160,7 +150,12 @@ export default function BalancesPage() {
                       {m.tipo}
                     </span>
                   </td>
-                  <td className="p-4 font-medium">{m.concepto}</td>
+                  <td className="p-4 font-medium">
+                    <span>{m.concepto}</span>
+                    {m.items?.length > 0 && (
+                      <span className="ml-2 text-xs text-muted-foreground font-normal">· {m.items.length} producto{m.items.length !== 1 ? 's' : ''}</span>
+                    )}
+                  </td>
                   <td className="p-4 text-sm text-muted-foreground">{m.usuario}</td>
                   <td className={`p-4 font-extrabold text-right ${m.tipo === 'ingreso' ? 'text-green-600' : 'text-red-500'}`}>
                     {m.tipo === 'egreso' ? '-' : '+'}Q {parseFloat(m.monto).toFixed(2)}
@@ -183,7 +178,9 @@ export default function BalancesPage() {
             <div className="flex items-center justify-between p-6 border-b border-border/30">
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${selectedMov.tipo === 'ingreso' ? 'bg-green-100' : 'bg-red-100'}`}>
-                  {selectedMov.tipo === 'ingreso' ? <TrendingUp size={20} className="text-green-600" /> : <TrendingDown size={20} className="text-red-500" />}
+                  {selectedMov.tipo === 'ingreso'
+                    ? <TrendingUp size={20} className="text-green-600" />
+                    : <TrendingDown size={20} className="text-red-500" />}
                 </div>
                 <div>
                   <h2 className="text-lg font-black">Detalle del Movimiento</h2>
@@ -207,67 +204,72 @@ export default function BalancesPage() {
               </div>
 
               {/* Info general */}
-              <div className="space-y-3">
+              <div className="space-y-1">
                 <InfoRow icon={<Receipt size={15} />} label="Concepto" value={selectedMov.concepto} />
                 <InfoRow icon={<Calendar size={15} />} label="Fecha" value={selectedMov.fecha} />
                 <InfoRow icon={<User size={15} />} label="Usuario" value={selectedMov.usuario || '—'} />
                 {selectedMov.referencia && (
                   <InfoRow icon={<Hash size={15} />} label="Referencia" value={
-                    /^\d+$/.test(selectedMov.referencia.trim())
+                    /^\d+$/.test(selectedMov.referencia)
                       ? `Venta #${selectedMov.referencia}`
                       : selectedMov.referencia
                   } />
                 )}
+                {selectedMov.venta?.cliente && (
+                  <InfoRow icon={<User size={15} />} label="Cliente" value={selectedMov.venta.cliente} />
+                )}
+                {selectedMov.venta?.metodoPago && (
+                  <InfoRow icon={<DollarSign size={15} />} label="Método pago" value={selectedMov.venta.metodoPago} />
+                )}
+                {selectedMov.venta?.tipo && (
+                  <InfoRow icon={<Receipt size={15} />} label="Tipo venta" value={selectedMov.venta.tipo} />
+                )}
               </div>
 
-              {/* Detalle de productos si es una venta */}
-              {ventaId && (
+              {/* Tabla de productos si es una venta */}
+              {selectedMov.items?.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <ShoppingBag size={15} className="text-primary" />
-                    <p className="text-sm font-bold text-foreground">Productos vendidos</p>
+                    <p className="text-sm font-bold">Productos vendidos</p>
+                    <span className="text-xs text-muted-foreground">({selectedMov.items.length})</span>
                   </div>
-                  {loadingVenta ? (
-                    <div className="text-center py-4 text-muted-foreground text-sm">Cargando productos...</div>
-                  ) : ventaDetalle?.items?.length ? (
-                    <div className="rounded-2xl border border-border/40 overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted/50">
-                          <tr>
-                            <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Producto</th>
-                            <th className="px-3 py-2 text-center font-semibold text-muted-foreground">Cant.</th>
-                            <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Subtotal</th>
+                  <div className="rounded-2xl border border-border/40 overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Producto</th>
+                          <th className="px-3 py-2 text-center font-semibold text-muted-foreground">Cant.</th>
+                          <th className="px-3 py-2 text-right font-semibold text-muted-foreground">P/U</th>
+                          <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedMov.items.map((item, idx) => (
+                          <tr key={idx} className="border-t border-border/20 hover:bg-muted/20">
+                            <td className="px-3 py-2 font-medium">{item.nombre}</td>
+                            <td className="px-3 py-2 text-center text-muted-foreground">{item.cantidad}</td>
+                            <td className="px-3 py-2 text-right text-muted-foreground">Q {parseFloat(item.precioUnitario || '0').toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right font-bold">Q {parseFloat(item.subtotal || '0').toFixed(2)}</td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {ventaDetalle.items.map((item, idx) => (
-                            <tr key={idx} className="border-t border-border/20">
-                              <td className="px-3 py-2 font-medium">{item.Nombre}</td>
-                              <td className="px-3 py-2 text-center text-muted-foreground">{item.Cantidad}</td>
-                              <td className="px-3 py-2 text-right font-bold">Q {parseFloat(item.Subtotal || '0').toFixed(2)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot className="bg-muted/30 border-t border-border/40">
-                          <tr>
-                            <td colSpan={2} className="px-3 py-2 font-bold text-sm">Total</td>
-                            <td className="px-3 py-2 text-right font-black text-primary">Q {parseFloat(ventaDetalle.Total || selectedMov.monto).toFixed(2)}</td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-3">Sin productos registrados</p>
-                  )}
-
-                  {ventaDetalle && (
-                    <div className="mt-3 flex gap-4 text-xs text-muted-foreground">
-                      {ventaDetalle.Cliente && <span>Cliente: <strong>{ventaDetalle.Cliente}</strong></span>}
-                      {ventaDetalle.MetodoPago && <span>Pago: <strong>{ventaDetalle.MetodoPago}</strong></span>}
-                      {ventaDetalle.Tipo && <span>Tipo: <strong>{ventaDetalle.Tipo}</strong></span>}
-                    </div>
-                  )}
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-muted/30 border-t border-border/40">
+                        <tr>
+                          <td colSpan={3} className="px-3 py-2 font-bold text-sm">Total</td>
+                          <td className="px-3 py-2 text-right font-black text-primary">
+                            Q {parseFloat(selectedMov.monto).toFixed(2)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 </div>
+              )}
+
+              {/* Movimiento manual (egreso u otro sin productos) */}
+              {!selectedMov.items?.length && selectedMov.referencia && !/^\d+$/.test(selectedMov.referencia) && (
+                <p className="text-sm text-muted-foreground text-center py-2">Movimiento manual sin productos asociados</p>
               )}
             </div>
           </div>
@@ -313,7 +315,7 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
   return (
     <div className="flex items-start gap-3 py-2 border-b border-border/20 last:border-0">
       <span className="text-muted-foreground mt-0.5">{icon}</span>
-      <span className="text-sm text-muted-foreground w-24 shrink-0">{label}</span>
+      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
       <span className="text-sm font-semibold text-foreground flex-1">{value}</span>
     </div>
   );

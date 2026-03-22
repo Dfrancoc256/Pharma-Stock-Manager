@@ -509,8 +509,37 @@ export function registerSheetsRoutes(app: Express) {
   app.get('/api/sheets/balances', async (req, res) => {
     try {
       const { desde, hasta } = req.query;
-      const movRows = await leerHoja('Movimientos');
+
+      // JOIN: fetch all three sheets in parallel
+      const [movRows, detalleRows, ventasRows] = await Promise.all([
+        leerHoja('Movimientos'),
+        leerHoja('Detalle_Venta'),
+        leerHoja('Ventas'),
+      ]);
+
       const movs = movRows.slice(1).filter(r => r[0] && r[0] !== '');
+
+      // Build lookup maps for the join
+      // Detalle_Venta cols: ID_Venta(0), Producto_ID(1), Nombre(2), TipoPrecio(3), Cantidad(4), PrecioUnitario(5), Subtotal(6)
+      const detallesPorVenta: Record<string, { nombre: string; cantidad: string; precioUnitario: string; subtotal: string; tipoPrecio: string }[]> = {};
+      detalleRows.slice(1).forEach(r => {
+        if (!r[0]) return;
+        const vid = String(r[0]).trim();
+        if (!detallesPorVenta[vid]) detallesPorVenta[vid] = [];
+        detallesPorVenta[vid].push({
+          nombre: r[2] || '', cantidad: r[4] || '', precioUnitario: r[5] || '',
+          subtotal: r[6] || '', tipoPrecio: r[3] || '',
+        });
+      });
+
+      // Ventas cols: ID_Venta(0), Fecha(1), Usuario(2), Cliente(3), Tipo(4), Fiador_ID(5), MetodoPago(6), Total(7)
+      const ventasPorId: Record<string, { cliente: string; metodoPago: string; tipo: string; total: string }> = {};
+      ventasRows.slice(1).forEach(r => {
+        if (!r[0]) return;
+        ventasPorId[String(r[0]).trim()] = {
+          cliente: r[3] || '', metodoPago: r[6] || '', tipo: r[4] || '', total: r[7] || '',
+        };
+      });
 
       let filtered = movs;
       if (desde || hasta) {
@@ -533,10 +562,19 @@ export function registerSheetsRoutes(app: Express) {
         ingresos: ingresos.toFixed(2),
         egresos: egresos.toFixed(2),
         cajaNeta: cajaNeta.toFixed(2),
-        movimientos: filtered.map(r => ({
-          id: r[0], fecha: r[1], tipo: r[2], concepto: r[3],
-          monto: r[4], usuario: r[5], referencia: r[6]
-        }))
+        movimientos: filtered.map(r => {
+          const ref = r[6] ? String(r[6]).trim() : '';
+          const esVenta = /^\d+$/.test(ref);
+          const venta = esVenta ? ventasPorId[ref] : null;
+          const items = esVenta ? (detallesPorVenta[ref] || []) : [];
+          return {
+            id: r[0], fecha: r[1], tipo: r[2], concepto: r[3],
+            monto: r[4], usuario: r[5], referencia: ref,
+            // JOIN fields
+            items,
+            venta: venta || null,
+          };
+        }),
       });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
