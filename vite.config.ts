@@ -32,6 +32,9 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
   },
+  optimizeDeps: {
+    include: ["recharts", "recharts/es6/component/Cell"],
+  },
   server: {
     fs: {
       strict: true,

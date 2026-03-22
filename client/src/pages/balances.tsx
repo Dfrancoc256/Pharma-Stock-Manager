@@ -27,10 +27,17 @@ interface BalancesData {
   ingresos: string; egresos: string; cajaNeta: string; movimientos: Movimiento[];
 }
 
+function todayISO() {
+  const now = new Date();
+  // Ajuste a Guatemala UTC-6
+  const gt = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+  return gt.toISOString().slice(0, 10);
+}
+
 export default function BalancesPage() {
   const queryClient = useQueryClient();
-  const [desde, setDesde] = useState('');
-  const [hasta, setHasta] = useState('');
+  const [desde, setDesde] = useState(todayISO);
+  const [hasta, setHasta] = useState(todayISO);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [tipo, setTipo] = useState<'ingreso' | 'egreso'>('egreso');
   const [concepto, setConcepto] = useState('');
@@ -96,8 +103,9 @@ export default function BalancesPage() {
           <label className="text-sm font-medium text-muted-foreground">Hasta</label>
           <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} className="input-field py-2 text-sm" data-testid="input-hasta" />
         </div>
-        {(desde || hasta) && (
-          <button onClick={() => { setDesde(''); setHasta(''); }} className="text-sm text-destructive underline">Limpiar</button>
+        <button onClick={() => { setDesde(todayISO()); setHasta(todayISO()); }} className="text-sm text-primary underline">Hoy</button>
+        {(desde !== todayISO() || hasta !== todayISO()) && (
+          <button onClick={() => { setDesde(''); setHasta(''); }} className="text-sm text-destructive underline">Ver todo</button>
         )}
       </div>
 

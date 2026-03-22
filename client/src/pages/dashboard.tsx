@@ -249,11 +249,8 @@ export default function DashboardPage() {
                       onClick={() => setVentaExpandida(ventaExpandida === v.id ? null : v.id)}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${v.tipo === 'contado' ? 'bg-green-500' : 'bg-amber-500'}`} />
-                        <div className="text-left min-w-0">
-                          <p className="text-sm font-semibold truncate">{v.cliente || 'Cliente general'}</p>
-                          <p className="text-xs text-muted-foreground">{v.fecha?.split(' ')[1] ?? v.fecha} · {v.metodoPago} · {v.tipo}</p>
-                        </div>
+                        <span className="text-xs text-muted-foreground flex-shrink-0 font-mono">{v.fecha?.split(' ')[1] ?? ''}</span>
+                        <p className="text-sm font-semibold truncate">{v.cliente && v.cliente !== 'Contado' ? v.cliente : 'Cliente general'}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="font-extrabold text-primary text-sm">Q {parseFloat(v.total || '0').toFixed(2)}</span>
