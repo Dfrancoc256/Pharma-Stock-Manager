@@ -253,6 +253,13 @@ export default function POSPage() {
   const [emailSending, setEmailSending] = useState(false);
   const [emailStatus, setEmailStatus] = useState<'idle' | 'ok' | 'error'>('idle');
 
+  // Auto-rellenar monto al abrir checkout para mayor velocidad
+  useEffect(() => {
+    if (isCheckoutOpen) {
+      setAmountPaid(cartTotal > 0 ? cartTotal.toFixed(2) : '');
+    }
+  }, [isCheckoutOpen, cartTotal]);
+
   // Producto info panel
   const [infoProducto, setInfoProducto] = useState<Producto | null>(null);
 
@@ -555,18 +562,15 @@ export default function POSPage() {
       if (res.ok) {
         setEmailStatus('ok');
         setTimeout(() => setEmailStatus('idle'), 3000);
+      } else if (res.status === 424) {
+        // SMTP no configurado → fallback silencioso a mailto
+        const mailLink = `mailto:${shareEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body.substring(0, 1800))}`;
+        window.open(mailLink, '_blank');
+        setEmailStatus('ok');
+        setTimeout(() => setEmailStatus('idle'), 3000);
       } else {
-        const err = await res.json();
-        // Si SMTP no está configurado, abrir mailto como fallback
-        if (err.message?.includes('Faltan variables SMTP')) {
-          const mailLink = `mailto:${shareEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body.substring(0, 1800))}`;
-          window.open(mailLink, '_blank');
-          setEmailStatus('ok');
-          setTimeout(() => setEmailStatus('idle'), 3000);
-        } else {
-          setEmailStatus('error');
-          setTimeout(() => setEmailStatus('idle'), 4000);
-        }
+        setEmailStatus('error');
+        setTimeout(() => setEmailStatus('idle'), 4000);
       }
     } catch {
       setEmailStatus('error');

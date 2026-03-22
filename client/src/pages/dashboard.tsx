@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import {
   Package, TrendingUp, TrendingDown, AlertTriangle, DollarSign,
-  ShoppingCart, BarChart2, ArrowUpRight, ArrowDownRight, CalendarDays
+  ShoppingCart, BarChart2, ArrowUpRight, ArrowDownRight, CalendarDays,
+  X, ChevronDown, ChevronUp, Receipt
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -20,6 +22,7 @@ interface DashboardData {
   fiadoPendiente?: string;
   ventasContadoHoy?: string;
   ventasFiadoHoy?: string;
+  ventasHoy?: { id: string; fecha: string; usuario: string; cliente: string; tipo: string; metodoPago: string; total: string; items: { nombre: string; cantidad: string; subtotal: string }[] }[];
   topProductos: { id: string; nombre: string; total: number; cantidad: number }[];
   ventasPorDia?: { fecha: string; ingresos: number; egresos: number }[];
   ventasPorHora?: { hora: string; ventas: number }[];
@@ -99,6 +102,9 @@ export default function DashboardPage() {
   }));
 
   const maxIngreso = mesData.length > 0 ? Math.max(...mesData.map(m => m.ingresos)) : 0;
+
+  const [showVentasHoy, setShowVentasHoy] = useState(false);
+  const [ventaExpandida, setVentaExpandida] = useState<string | null>(null);
 
   return (
     <Layout>
@@ -181,14 +187,27 @@ export default function DashboardPage() {
 
           {/* ── Lo que va del día ── */}
           <div className="glass-card rounded-3xl p-6">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-2xl bg-indigo-100 flex items-center justify-center">
-                <CalendarDays size={18} className="text-indigo-600" />
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-2xl bg-indigo-100 flex items-center justify-center">
+                  <CalendarDays size={18} className="text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground">Lo que va del día</h3>
+                  <p className="text-xs text-muted-foreground capitalize">{fechaHoy}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-foreground">Lo que va del día</h3>
-                <p className="text-xs text-muted-foreground capitalize">{fechaHoy}</p>
-              </div>
+              {(data.ventasHoy?.length ?? 0) > 0 && (
+                <button
+                  data-testid="btn-ver-ventas-hoy"
+                  onClick={() => setShowVentasHoy(v => !v)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition-colors"
+                >
+                  <Receipt size={13} />
+                  {data.ventasHoy!.length} ventas
+                  {showVentasHoy ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </button>
+              )}
             </div>
 
             {ingresosHoy === 0 && egresosHoy === 0 ? (
@@ -216,6 +235,55 @@ export default function DashboardPage() {
                     Q {cajaHoy.toLocaleString('es-GT', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
+              </div>
+            )}
+
+            {/* Panel desplegable de ventas de hoy */}
+            {showVentasHoy && (data.ventasHoy?.length ?? 0) > 0 && (
+              <div className="mt-5 border-t border-border pt-4 space-y-2" data-testid="panel-ventas-hoy">
+                {data.ventasHoy!.map((v) => (
+                  <div key={v.id} className="rounded-2xl border border-border bg-muted/20 overflow-hidden">
+                    <button
+                      data-testid={`venta-hoy-${v.id}`}
+                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/40 transition-colors"
+                      onClick={() => setVentaExpandida(ventaExpandida === v.id ? null : v.id)}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${v.tipo === 'contado' ? 'bg-green-500' : 'bg-amber-500'}`} />
+                        <div className="text-left min-w-0">
+                          <p className="text-sm font-semibold truncate">{v.cliente || 'Cliente general'}</p>
+                          <p className="text-xs text-muted-foreground">{v.fecha?.split(' ')[1] ?? v.fecha} · {v.metodoPago} · {v.tipo}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="font-extrabold text-primary text-sm">Q {parseFloat(v.total || '0').toFixed(2)}</span>
+                        {ventaExpandida === v.id ? <ChevronUp size={14} className="text-muted-foreground" /> : <ChevronDown size={14} className="text-muted-foreground" />}
+                      </div>
+                    </button>
+                    {ventaExpandida === v.id && v.items.length > 0 && (
+                      <div className="px-4 pb-3 border-t border-border/50">
+                        <table className="w-full text-xs mt-2">
+                          <thead>
+                            <tr className="text-muted-foreground">
+                              <th className="text-left py-1 font-medium">Producto</th>
+                              <th className="text-center py-1 font-medium">Cant.</th>
+                              <th className="text-right py-1 font-medium">Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {v.items.map((item, ii) => (
+                              <tr key={ii} className="border-t border-border/30">
+                                <td className="py-1 text-foreground">{item.nombre}</td>
+                                <td className="py-1 text-center text-muted-foreground">{item.cantidad}</td>
+                                <td className="py-1 text-right font-semibold text-primary">Q {parseFloat(item.subtotal || '0').toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>

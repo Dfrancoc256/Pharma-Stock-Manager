@@ -67,7 +67,6 @@ Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instr
             content: `Producto: ${nombre}${detalle ? ` ${detalle}` : ""}${categoria ? ` (Categoría: ${categoria})` : ""}`
           }
         ],
-        response_format: { type: "json_object" },
         max_tokens: 600,
       });
 
@@ -133,7 +132,6 @@ Máximo 6 resultados. Si no hay coincidencias claras, devuelve los más cercanos
             content: `Catálogo disponible:\n${catalogoTexto}\n\nBúsqueda del cliente: "${query}"`
           }
         ],
-        response_format: { type: "json_object" },
         max_tokens: 1000,
       });
 
@@ -193,7 +191,6 @@ Máximo 3 de cada tipo.`
             content: `Producto seleccionado: ${productoBase ? `${productoBase.nombre} ${productoBase.detalle} (Cat: ${productoBase.categoria})` : nombre || productoId}\n\nCatálogo disponible:\n${catalogoTexto}`
           }
         ],
-        response_format: { type: "json_object" },
         max_tokens: 800,
       });
 
@@ -259,7 +256,6 @@ Historial de movimientos relacionados: ${ventasRelacionadas.length} registros en
 ${ventasRelacionadas.length > 0 ? ventasRelacionadas.slice(0, 5).map((m: any) => `- ${m.Fecha}: ${m.Concepto} Q${m.Monto}`).join("\n") : "Sin historial de ventas registrado"}`
           }
         ],
-        response_format: { type: "json_object" },
         max_tokens: 500,
       });
 

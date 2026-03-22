@@ -24,6 +24,11 @@ export function registerEmailRoutes(app: Express) {
       return res.status(400).json({ message: "Faltan campos: to, subject, text" });
     }
 
+    // Si SMTP no está configurado, devolver 424 para que el frontend use mailto fallback
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      return res.status(424).json({ noSmtp: true, message: "Faltan variables SMTP_HOST, SMTP_USER o SMTP_PASS en el servidor" });
+    }
+
     try {
       const { transporter, from } = getTransporter();
       await transporter.sendMail({ from, to, subject, text });

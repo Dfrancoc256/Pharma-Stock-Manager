@@ -481,9 +481,23 @@ export function registerSheetsRoutes(app: Express) {
 
       // Ventas fiado cobradas hoy (contado ventas hoy = caja real hoy)
       const hoyStr = `${String(hoy.getDate()).padStart(2, '0')}/${String(hoy.getMonth() + 1).padStart(2, '0')}/${hoy.getFullYear()}`;
-      const ventasHoy = ventasRows2.filter((v: string[]) => v[1]?.startsWith(hoyStr));
-      const ventasContadoHoy = ventasHoy.filter((v: string[]) => v[4] === 'contado').reduce((acc: number, v: string[]) => acc + parseFloat(v[7] || '0'), 0);
-      const ventasFiadoHoy = ventasHoy.filter((v: string[]) => v[4] === 'fiado').reduce((acc: number, v: string[]) => acc + parseFloat(v[7] || '0'), 0);
+      const ventasHoyRows = ventasRows2.filter((v: string[]) => v[1]?.startsWith(hoyStr));
+      const ventasContadoHoy = ventasHoyRows.filter((v: string[]) => v[4] === 'contado').reduce((acc: number, v: string[]) => acc + parseFloat(v[7] || '0'), 0);
+      const ventasFiadoHoy = ventasHoyRows.filter((v: string[]) => v[4] === 'fiado').reduce((acc: number, v: string[]) => acc + parseFloat(v[7] || '0'), 0);
+
+      // Join ventasHoy con Detalle_Venta para el panel clickable
+      const detallesPorVentaHoy: Record<string, { nombre: string; cantidad: string; subtotal: string }[]> = {};
+      detalleVentaRows.slice(1).forEach((r: string[]) => {
+        if (!r[0]) return;
+        const vid = String(r[0]).trim();
+        if (!detallesPorVentaHoy[vid]) detallesPorVentaHoy[vid] = [];
+        detallesPorVentaHoy[vid].push({ nombre: r[2] || '', cantidad: r[4] || '', subtotal: r[6] || '' });
+      });
+      const ventasHoy = ventasHoyRows.map((v: string[]) => ({
+        id: v[0], fecha: v[1], usuario: v[2], cliente: v[3],
+        tipo: v[4], metodoPago: v[6], total: v[7],
+        items: detallesPorVentaHoy[String(v[0]).trim()] || [],
+      }));
 
       res.json({
         totalProductos, existenciaTotal, bajosStock, totalVentas,
@@ -493,6 +507,7 @@ export function registerSheetsRoutes(app: Express) {
         fiadoPendiente: fiadoPendiente.toFixed(2),
         ventasContadoHoy: ventasContadoHoy.toFixed(2),
         ventasFiadoHoy: ventasFiadoHoy.toFixed(2),
+        ventasHoy,
         topProductos,
         ventasPorDia,
         ventasPorHora,
