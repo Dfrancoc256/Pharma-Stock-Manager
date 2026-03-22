@@ -14,6 +14,22 @@ function getGroq(): OpenAI {
   return _groqClient;
 }
 
+// Extrae JSON de una respuesta que puede venir con markdown ```json ... ```
+function extractJson(raw: string): any {
+  if (!raw) return {};
+  const cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Busca el primer bloque { ... } o [ ... ]
+    const match = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    if (match) {
+      try { return JSON.parse(match[1]); } catch { return {}; }
+    }
+    return {};
+  }
+}
+
 function parseNum(val: string): number {
   return parseFloat(String(val).replace(",", ".")) || 0;
 }
@@ -56,7 +72,7 @@ Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instr
       });
 
       const content = completion.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
+      const parsed = extractJson(content);
       res.json({ ...parsed, producto: { id, nombre, detalle, categoria } });
     } catch (err: any) {
       console.error("AI info-producto error:", err.message);
@@ -122,10 +138,10 @@ Máximo 6 resultados. Si no hay coincidencias claras, devuelve los más cercanos
       });
 
       const content = completion.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
+      const parsed = extractJson(content);
       res.json(parsed);
     } catch (err: any) {
-      console.error("AI buscar error:", err.message);
+      console.error("AI buscar error:", err.message, err.status, err.error);
       res.status(500).json({ message: "Error en búsqueda IA: " + err.message });
     }
   });
@@ -182,7 +198,7 @@ Máximo 3 de cada tipo.`
       });
 
       const content = completion.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
+      const parsed = extractJson(content);
       res.json(parsed);
     } catch (err: any) {
       console.error("AI recomendar error:", err.message);
@@ -248,7 +264,7 @@ ${ventasRelacionadas.length > 0 ? ventasRelacionadas.slice(0, 5).map((m: any) =>
       });
 
       const content = completion.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
+      const parsed = extractJson(content);
       res.json({
         ...parsed,
         producto: { id: productoId, nombre, stockActual, precioUnidad, precioCompra },

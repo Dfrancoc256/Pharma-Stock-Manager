@@ -15,10 +15,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/pos", label: "Punto de Venta", icon: ShoppingCart },
-  { href: "/inventory", label: "Inventario", icon: PackageSearch },
-  { href: "/fiadores", label: "Fiadores", icon: Users },
+  { href: "/", label: "Resumen de ventas", icon: LayoutDashboard },
+  { href: "/pos", label: "Vender", icon: ShoppingCart },
+  { href: "/inventory", label: "Productos", icon: PackageSearch },
+  { href: "/fiadores", label: "Deudores", icon: Users },
   { href: "/balances", label: "Balances", icon: TrendingUp },
   { href: "/users", label: "Usuarios", icon: ShieldCheck, adminOnly: true },
   { href: "/importar", label: "Importar Datos", icon: FileSpreadsheet, adminOnly: true },

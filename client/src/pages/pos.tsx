@@ -250,6 +250,8 @@ export default function POSPage() {
   const [shareWhatsapp, setShareWhatsapp] = useState('');
   const [shareEmail, setShareEmail] = useState('');
   const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'ok' | 'error'>('idle');
 
   // Producto info panel
   const [infoProducto, setInfoProducto] = useState<Producto | null>(null);
@@ -539,6 +541,41 @@ export default function POSPage() {
     }
   };
 
+  const handleSendEmail = async (subject: string, body: string) => {
+    if (!shareEmail) return;
+    setEmailSending(true);
+    setEmailStatus('idle');
+    try {
+      const res = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: shareEmail, subject, text: body }),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        setEmailStatus('ok');
+        setTimeout(() => setEmailStatus('idle'), 3000);
+      } else {
+        const err = await res.json();
+        // Si SMTP no está configurado, abrir mailto como fallback
+        if (err.message?.includes('Faltan variables SMTP')) {
+          const mailLink = `mailto:${shareEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body.substring(0, 1800))}`;
+          window.open(mailLink, '_blank');
+          setEmailStatus('ok');
+          setTimeout(() => setEmailStatus('idle'), 3000);
+        } else {
+          setEmailStatus('error');
+          setTimeout(() => setEmailStatus('idle'), 4000);
+        }
+      }
+    } catch {
+      setEmailStatus('error');
+      setTimeout(() => setEmailStatus('idle'), 4000);
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
   const handleShareWhatsApp = async () => {
     setPdfGenerating(true);
     try {
@@ -780,17 +817,22 @@ export default function POSPage() {
           </div>
 
           <div className="p-5 bg-white border-t border-border/50">
-            <div className="flex justify-between items-center mb-5">
-              <span className="text-lg text-muted-foreground font-medium">Total</span>
-              <span className="text-3xl font-extrabold text-foreground">Q {cartTotal.toFixed(2)}</span>
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-sm text-muted-foreground font-medium uppercase tracking-wide">Total</span>
+              <span className="text-4xl font-black text-foreground tabular-nums">Q {cartTotal.toFixed(2)}</span>
             </div>
             <button
               disabled={cart.length === 0}
               onClick={() => setIsCheckoutOpen(true)}
-              className="w-full interactive-btn py-4 rounded-2xl bg-gradient-to-r from-primary to-teal-500 text-white font-bold text-lg shadow-lg shadow-primary/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`w-full py-4 rounded-2xl font-black text-xl shadow-lg flex items-center justify-center gap-3 transition-all duration-200
+                ${cart.length > 0
+                  ? 'bg-gradient-to-r from-primary to-emerald-500 text-white shadow-primary/40 hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/30 active:scale-[0.98] animate-none'
+                  : 'bg-muted text-muted-foreground cursor-not-allowed opacity-50'
+                }`}
               data-testid="button-cobrar"
             >
-              <ReceiptText size={20} /> Cobrar
+              <ReceiptText size={22} />
+              {cart.length > 0 ? `Cobrar Q ${cartTotal.toFixed(2)}` : 'Cobrar'}
             </button>
           </div>
         </div>
@@ -1008,18 +1050,26 @@ export default function POSPage() {
                       className="input-field flex-1"
                       placeholder="correo@ejemplo.com"
                       value={shareEmail}
-                      onChange={e => setShareEmail(e.target.value)}
+                      onChange={e => { setShareEmail(e.target.value); setEmailStatus('idle'); }}
                       data-testid="input-share-email"
                     />
-                    <a
-                      href={mailLink || '#'}
-                      onClick={e => { if (!shareEmail) e.preventDefault(); }}
-                      className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 interactive-btn text-white ${shareEmail ? 'bg-blue-500 hover:bg-blue-600' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
+                    <button
+                      onClick={() => handleSendEmail(emailSubject, emailBody)}
+                      disabled={emailSending || !shareEmail}
+                      className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 interactive-btn text-white transition-colors ${
+                        emailStatus === 'ok' ? 'bg-green-500' :
+                        emailStatus === 'error' ? 'bg-red-500' :
+                        shareEmail ? 'bg-blue-500 hover:bg-blue-600' : 'bg-muted text-muted-foreground cursor-not-allowed'
+                      }`}
                       data-testid="button-share-email"
                     >
-                      <Mail size={16} /> Enviar
-                    </a>
+                      {emailSending ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
+                      {emailSending ? '...' : emailStatus === 'ok' ? '¡Enviado!' : emailStatus === 'error' ? 'Error' : 'Enviar'}
+                    </button>
                   </div>
+                  {emailStatus === 'error' && (
+                    <p className="text-xs text-red-500">No se pudo enviar. Verifica la configuración SMTP del servidor.</p>
+                  )}
                 </div>
 
                 {/* Descargar PDF + Imprimir */}
