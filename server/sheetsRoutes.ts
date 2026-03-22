@@ -11,9 +11,12 @@ import {
 import { format } from "date-fns";
 
 // Guatemala is UTC-6, no daylight saving time
+function nowGuatemala(): Date {
+  return new Date(Date.now() - 6 * 60 * 60 * 1000);
+}
+
 function fechaGuatemala(): string {
-  const now = new Date(Date.now() - 6 * 60 * 60 * 1000);
-  return format(now, 'dd/MM/yyyy HH:mm');
+  return format(nowGuatemala(), 'dd/MM/yyyy HH:mm');
 }
 
 export function registerSheetsRoutes(app: Express) {
@@ -376,7 +379,7 @@ export function registerSheetsRoutes(app: Express) {
       const cajaNeta = ingresos - egresos;
 
       // Movimientos por día — últimos 14 días
-      const hoy = new Date();
+      const hoy = nowGuatemala();
       const diasMap: Record<string, { fecha: string; ingresos: number; egresos: number }> = {};
       for (let d = 13; d >= 0; d--) {
         const fecha = new Date(hoy);
@@ -449,7 +452,7 @@ export function registerSheetsRoutes(app: Express) {
       // Ventas por mes — últimos 12 meses
       const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
       const mesMap: Record<string, { label: string; ingresos: number; order: number }> = {};
-      const ahora = new Date();
+      const ahora = nowGuatemala();
       for (let i = 11; i >= 0; i--) {
         const d = new Date(ahora.getFullYear(), ahora.getMonth() - i, 1);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
