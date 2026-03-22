@@ -21,34 +21,52 @@ function fechaGuatemala(): string {
 
 /**
  * Extrae la parte de fecha (sin hora) de un valor de celda de Google Sheets.
- * Maneja texto "DD/MM/YYYY HH:MM", números seriales de Sheets (45738.04...) y strings ISO.
- * Siempre devuelve "DD/MM/YYYY" o null si no se puede parsear.
+ * Devuelve siempre "DD/MM/YYYY" o null.
+ *
+ * Casos que maneja:
+ *  - Número serial de Sheets  (e.g. "45738.04375" o 45738.04375)
+ *  - Texto DD/MM/YYYY [HH:MM] (formato Guatemala — escrito por fechaGuatemala())
+ *  - Texto M/D/YYYY  [HH:MM]  (FORMATTED_VALUE en locale EE.UU.)
+ *  - Texto YYYY-MM-DD          (ISO)
  */
-function parsearFechaSheets(valor: string | undefined): string | null {
-  if (!valor) return null;
-  const v = valor.trim();
+function parsearFechaSheets(valor: string | number | undefined): string | null {
+  if (valor === undefined || valor === null || valor === '') return null;
+  const v = String(valor).trim();
 
-  // Número serial de Google Sheets (fecha almacenada como número, e.g. "45738.04375")
+  // ── Número serial de Google Sheets ──────────────────────────────────────
   if (/^\d+(\.\d+)?$/.test(v)) {
     const serial = parseFloat(v);
-    // Google Sheets serial: días desde 30/12/1899
-    const ms = (serial - 25569) * 86400000; // 25569 = días entre 30/12/1899 y 01/01/1970
+    if (serial < 1000) return null; // valor demasiado pequeño para ser fecha real
+    const ms = (serial - 25569) * 86400000; // 25569 = días entre 30/12/1899 y Unix epoch
     const d = new Date(ms);
     const dd = String(d.getUTCDate()).padStart(2, '0');
     const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const yyyy = d.getUTCFullYear();
-    return `${dd}/${mm}/${yyyy}`;
+    return `${dd}/${mm}/${d.getUTCFullYear()}`;
   }
 
-  // Formato DD/MM/YYYY (con o sin hora)
+  // ── D/M/YYYY o DD/MM/YYYY (con o sin hora) ──────────────────────────────
   const match = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (match) {
-    const dd = match[1].padStart(2, '0');
-    const mm = match[2].padStart(2, '0');
+    const a = parseInt(match[1], 10);
+    const b = parseInt(match[2], 10);
+    let dd: string, mm: string;
+    if (a > 12) {
+      // El primer número es > 12 → solo puede ser el día → DD/MM/YYYY
+      dd = String(a).padStart(2, '0');
+      mm = String(b).padStart(2, '0');
+    } else if (b > 12) {
+      // El segundo número es > 12 → solo puede ser el día → M/D/YYYY (locale EE.UU.)
+      dd = String(b).padStart(2, '0');
+      mm = String(a).padStart(2, '0');
+    } else {
+      // Ambos ≤ 12: asumimos DD/MM/YYYY (nuestro código siempre escribe así)
+      dd = String(a).padStart(2, '0');
+      mm = String(b).padStart(2, '0');
+    }
     return `${dd}/${mm}/${match[3]}`;
   }
 
-  // Formato ISO YYYY-MM-DD
+  // ── YYYY-MM-DD (ISO) ─────────────────────────────────────────────────────
   const iso = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
 
@@ -158,7 +176,7 @@ export function registerSheetsRoutes(app: Express) {
       const lastId = ventaRows.length > 1 ? parseInt(ventaRows[ventaRows.length - 1][0]) || 0 : 0;
       const newId = (lastId + 1).toString();
 
-      await appendFila('Ventas', [newId, fecha, usuario, cliente || '', tipo || 'contado', fiadorId || '', metodoPago || 'efectivo', total]);
+      await appendFila('Ventas', [newId, fecha, usuario, cliente || '', tipo || 'contado', fiadorId || '', metodoPago || 'efectivo', parseFloat(total)]);
 
       // Add detail rows and update stock
       const stockRows = await leerHoja('Stock');
@@ -177,8 +195,13 @@ export function registerSheetsRoutes(app: Express) {
 
         // Update stock in Sheets (only if stock column exists)
         if (stockColLetter) {
+          const idBuscado = String(item.productoId).trim();
           for (let i = 1; i < stockRows.length; i++) {
-            if (stockRows[i][0] === item.productoId.toString()) {
+            const idFila = String(stockRows[i][0] ?? '').trim();
+            // Comparar como texto y también como número (por si Google Sheets devuelve "1.00" en vez de "1")
+            const coincide = idFila === idBuscado ||
+              (!isNaN(Number(idFila)) && !isNaN(Number(idBuscado)) && Math.round(Number(idFila)) === Math.round(Number(idBuscado)));
+            if (coincide) {
               const currentStock = parseInt(stockRows[i][stockColIdx]) || 0;
               const newStock = Math.max(0, currentStock - parseInt(item.cantidad));
               await updateRango(`Stock!${stockColLetter}${i + 1}`, [[newStock]]);
@@ -192,7 +215,7 @@ export function registerSheetsRoutes(app: Express) {
       // Register ingreso movement
       const movRows = await leerHoja('Movimientos');
       const lastMovId = movRows.length > 1 ? parseInt(movRows[movRows.length - 1][0]) || 0 : 0;
-      await appendFila('Movimientos', [lastMovId + 1, fecha, 'ingreso', `Venta #${newId}`, total, usuario, newId]);
+      await appendFila('Movimientos', [lastMovId + 1, fecha, 'ingreso', `Venta #${newId}`, parseFloat(total), usuario, newId]);
 
       // Update fiador saldo if fiado — add sale total to existing balance
       if (tipo === 'fiado' && fiadorId) {
