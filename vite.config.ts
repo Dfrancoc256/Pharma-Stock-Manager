@@ -33,8 +33,18 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          recharts: ["recharts"],
+        // Group recharts + all d3 deps in one chunk to avoid TDZ circular-reference errors
+        manualChunks(id) {
+          if (
+            id.includes("node_modules/recharts") ||
+            id.includes("node_modules/d3-") ||
+            id.includes("node_modules/d3/") ||
+            id.includes("node_modules/internmap") ||
+            id.includes("node_modules/robust-predicates") ||
+            id.includes("node_modules/delaunator")
+          ) {
+            return "vendor-charts";
+          }
         },
       },
     },
