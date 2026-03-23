@@ -31,23 +31,6 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    rollupOptions: {
-      output: {
-        // Group recharts + all d3 deps in one chunk to avoid TDZ circular-reference errors
-        manualChunks(id) {
-          if (
-            id.includes("node_modules/recharts") ||
-            id.includes("node_modules/d3-") ||
-            id.includes("node_modules/d3/") ||
-            id.includes("node_modules/internmap") ||
-            id.includes("node_modules/robust-predicates") ||
-            id.includes("node_modules/delaunator")
-          ) {
-            return "vendor-charts";
-          }
-        },
-      },
-    },
   },
   optimizeDeps: {
     include: ["recharts", "recharts/es6/component/Cell"],
