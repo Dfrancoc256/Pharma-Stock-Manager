@@ -253,6 +253,8 @@ export default function POSPage() {
   const [emailSending, setEmailSending] = useState(false);
   const [emailStatus, setEmailStatus] = useState<'idle' | 'ok' | 'error'>('idle');
 
+  const cartTotal = useMemo(() => cart.reduce((acc, item) => acc + getPrecio(item.producto, item.tipoPrecio) * item.cantidad, 0), [cart]);
+
   // Auto-rellenar monto al abrir checkout para mayor velocidad
   useEffect(() => {
     if (isCheckoutOpen) {
@@ -365,8 +367,6 @@ export default function POSPage() {
     }
     return localFiltered;
   }, [aiResultados, localFiltered, productos]);
-
-  const cartTotal = useMemo(() => cart.reduce((acc, item) => acc + getPrecio(item.producto, item.tipoPrecio) * item.cantidad, 0), [cart]);
 
   const addToCart = (producto: Producto) => {
     setCart(prev => {

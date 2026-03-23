@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect, lazy, Suspense, Component, ReactNode } from "react";
 import NotFound from "@/pages/not-found";
 import POSPage from "@/pages/pos";
 import InventoryPage from "@/pages/inventory";
@@ -17,6 +17,31 @@ import { useAuth } from "@/hooks/use-auth";
 // Lazy-load Dashboard so recharts (and all d3 deps) are in a separate async chunk.
 // This prevents the Rollup TDZ circular-reference error in production builds.
 const DashboardPage = lazy(() => import("@/pages/dashboard"));
+
+class DashboardErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error?: Error }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen gap-4 text-muted-foreground">
+          <p className="text-lg font-semibold text-destructive">Error al cargar el dashboard</p>
+          <p className="text-sm">{this.state.error?.message}</p>
+          <button
+            className="text-sm underline text-primary"
+            onClick={() => this.setState({ hasError: false })}
+          >Reintentar</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function AppRouter() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -43,9 +68,11 @@ function AppRouter() {
     <Switch>
       <Route path="/login" component={LoginPage} />
       <Route path="/">
-        <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary" /></div>}>
-          <DashboardPage />
-        </Suspense>
+        <DashboardErrorBoundary>
+          <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary" /></div>}>
+            <DashboardPage />
+          </Suspense>
+        </DashboardErrorBoundary>
       </Route>
       <Route path="/pos" component={POSPage} />
       <Route path="/inventory" component={InventoryPage} />
