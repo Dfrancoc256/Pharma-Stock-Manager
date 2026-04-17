@@ -260,7 +260,7 @@ export default function DashboardPage() {
                   className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition-colors"
                 >
                   <Receipt size={13} />
-                  {data.ventasHoy!.length} ventas
+                  {data.ventasHoy?.length ?? 0} ventas
                   {showVentasHoy ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                 </button>
               )}
@@ -353,7 +353,7 @@ export default function DashboardPage() {
                       </div>
                     </button>
 
-                    {ventaExpandida === v.id && v.items.length > 0 && (
+                    {ventaExpandida === v.id && (v.items?.length ?? 0) > 0 && (
                       <div className="px-4 pb-3 border-t border-border/50">
                         <table className="w-full text-xs mt-2">
                           <thead>
@@ -481,7 +481,7 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {data.topProductos.length > 0 && (
+            {(data.topProductos?.length ?? 0) > 0 && (
               <div className="glass-card rounded-3xl p-6">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="w-9 h-9 rounded-2xl bg-green-100 flex items-center justify-center">
@@ -493,8 +493,8 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  {data.topProductos.slice(0, 8).map((p, i) => {
-                    const maxQty = data.topProductos[0].cantidad;
+                  {(data.topProductos ?? []).slice(0, 8).map((p, i) => {
+                    const maxQty = data.topProductos?.[0]?.cantidad ?? 1;
                     const pct = Math.round((p.cantidad / maxQty) * 100);
                     return (
                       <div key={p.id} className="flex items-center gap-3 py-2">
