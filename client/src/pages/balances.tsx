@@ -110,22 +110,48 @@ export default function BalancesPage() {
       </div>
 
       {/* KPIs */}
-      {data && (
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="glass-card rounded-3xl p-6">
-            <div className="flex items-center gap-2 mb-2"><TrendingUp size={18} className="text-green-600" /><span className="text-sm text-muted-foreground font-medium">Ingresos</span></div>
-            <div className="text-3xl font-black text-green-600">Q {parseFloat(data.ingresos).toLocaleString('es-GT', { minimumFractionDigits: 2 })}</div>
-          </div>
-          <div className="glass-card rounded-3xl p-6">
-            <div className="flex items-center gap-2 mb-2"><TrendingDown size={18} className="text-red-500" /><span className="text-sm text-muted-foreground font-medium">Egresos</span></div>
-            <div className="text-3xl font-black text-red-500">Q {parseFloat(data.egresos).toLocaleString('es-GT', { minimumFractionDigits: 2 })}</div>
-          </div>
-          <div className="glass-card rounded-3xl p-6">
-            <div className="flex items-center gap-2 mb-2"><DollarSign size={18} className={parseFloat(data.cajaNeta) >= 0 ? 'text-primary' : 'text-red-500'} /><span className="text-sm text-muted-foreground font-medium">Caja Neta</span></div>
-            <div className={`text-3xl font-black ${parseFloat(data.cajaNeta) >= 0 ? 'text-primary' : 'text-red-500'}`}>Q {parseFloat(data.cajaNeta).toLocaleString('es-GT', { minimumFractionDigits: 2 })}</div>
-          </div>
-        </div>
-      )}
+{data && (
+  <div className="grid grid-cols-3 gap-4 mb-6">
+
+    <div className="glass-card rounded-3xl p-6">
+      <div className="flex items-center gap-2 mb-2">
+        <TrendingUp size={18} className="text-green-600" />
+        <span className="text-sm text-muted-foreground font-medium">Ingresos</span>
+      </div>
+      <div className="text-3xl font-black text-green-600">
+        Q {Number(data?.ingresos ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+      </div>
+    </div>
+
+    <div className="glass-card rounded-3xl p-6">
+      <div className="flex items-center gap-2 mb-2">
+        <TrendingDown size={18} className="text-red-500" />
+        <span className="text-sm text-muted-foreground font-medium">Egresos</span>
+      </div>
+      <div className="text-3xl font-black text-red-500">
+        Q {Number(data?.egresos ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+      </div>
+    </div>
+
+    <div className="glass-card rounded-3xl p-6">
+      <div className="flex items-center gap-2 mb-2">
+        <DollarSign
+          size={18}
+          className={Number(data?.cajaNeta ?? 0) >= 0 ? 'text-primary' : 'text-red-500'}
+        />
+        <span className="text-sm text-muted-foreground font-medium">Caja Neta</span>
+      </div>
+      <div
+        className={`text-3xl font-black ${
+          Number(data?.cajaNeta ?? 0) >= 0 ? 'text-primary' : 'text-red-500'
+        }`}
+      >
+        Q {Number(data?.cajaNeta ?? 0).toLocaleString('es-GT', { minimumFractionDigits: 2 })}
+      </div>
+    </div>
+
+  </div>
+)}
 
       {/* Tabla Movimientos */}
       <div className="glass-card rounded-3xl overflow-hidden">
