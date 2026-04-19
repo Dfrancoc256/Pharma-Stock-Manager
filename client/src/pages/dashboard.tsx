@@ -27,32 +27,64 @@ import {
   Cell,
 } from "recharts";
 
+interface VentaItem {
+  nombre: string;
+  cantidad: string;
+  subtotal: string;
+}
+
+interface VentaHoy {
+  id: string;
+  fecha: string;
+  usuario: string;
+  cliente: string;
+  tipo: string;
+  metodoPago: string;
+  total: string;
+  items: VentaItem[];
+}
+
+interface TopProducto {
+  id: string;
+  nombre: string;
+  total: number;
+  cantidad: number;
+}
+
+interface VentaPorDia {
+  fecha: string;
+  ingresos: number;
+  egresos: number;
+}
+
+interface TopCategoria {
+  nombre: string;
+  cantidad: number;
+}
+
+interface VentaPorMes {
+  label: string;
+  ingresos: number;
+  order: number;
+}
+
 interface DashboardData {
-  totalProductos: number;
-  existenciaTotal: number;
-  bajosStock: number;
+  totalProductos?: number;
+  existenciaTotal?: number;
+  bajosStock?: number;
   totalVentas?: number;
-  ingresos: string;
-  egresos: string;
-  cajaNeta: string;
+  ingresos?: string;
+  egresos?: string;
+  cajaNeta?: string;
   fiadoPendiente?: string;
   ventasContadoHoy?: string;
   ventasFiadoHoy?: string;
-  ventasHoy?: {
-    id: string;
-    fecha: string;
-    usuario: string;
-    cliente: string;
-    tipo: string;
-    metodoPago: string;
-    total: string;
-    items: { nombre: string; cantidad: string; subtotal: string }[];
-  }[];
-  topProductos?: { id: string; nombre: string; total: number; cantidad: number }[];
-  ventasPorDia?: { fecha: string; ingresos: number; egresos: number }[];
-  ventasPorHora?: { hora: string; ventas: number }[];
-  topCategorias?: { nombre: string; cantidad: number }[];
-  ventasPorMes?: { label: string; ingresos: number; order: number }[];
+  ventasHoy?: VentaHoy[] | unknown;
+  topProductos?: TopProducto[] | unknown;
+  ventasPorDia?: VentaPorDia[] | unknown;
+  ventasPorHora?: { hora: string; ventas: number }[] | unknown;
+  topCategorias?: TopCategoria[] | unknown;
+  ventasPorMes?: VentaPorMes[] | unknown;
 }
 
 interface DashboardResponse {
@@ -71,15 +103,29 @@ const BAR_COLORS = [
   "#f97316",
 ];
 
+function toNumber(value: unknown): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const normalized = value.replace(/,/g, "");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
 const CustomTooltipMes = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
+  if (!active || !Array.isArray(payload) || payload.length === 0) return null;
 
   return (
     <div className="bg-white border border-border rounded-2xl shadow-xl p-3 text-sm min-w-[160px]">
-      <p className="font-bold text-muted-foreground mb-1">{label}</p>
+      <p className="font-bold text-muted-foreground mb-1">{label ?? ""}</p>
       <p className="font-extrabold text-primary">
         Q{" "}
-        {Number(payload?.[0]?.value ?? 0).toLocaleString("es-GT", {
+        {toNumber(payload?.[0]?.value).toLocaleString("es-GT", {
           minimumFractionDigits: 2,
         })}
       </p>
@@ -133,19 +179,19 @@ export default function DashboardPage() {
       if (!res.ok) throw new Error("Error cargando dashboard");
 
       const json: DashboardResponse = await res.json();
-      return json.data;
+      return json?.data ?? {};
     },
     refetchInterval: 60000,
   });
 
-  const caja = parseFloat(data?.cajaNeta || "0");
-  const ingresos = parseFloat(data?.ingresos || "0");
-  const egresos = parseFloat(data?.egresos || "0");
+  const ingresos = toNumber(data?.ingresos);
+  const egresos = toNumber(data?.egresos);
+  const caja = toNumber(data?.cajaNeta);
 
-  const diasData = data?.ventasPorDia ?? [];
-  const hoy = diasData[diasData.length - 1];
-  const ingresosHoy = hoy?.ingresos ?? 0;
-  const egresosHoy = hoy?.egresos ?? 0;
+  const ventasPorDia = asArray<VentaPorDia>(data?.ventasPorDia);
+  const hoy = ventasPorDia.length > 0 ? ventasPorDia[ventasPorDia.length - 1] : undefined;
+  const ingresosHoy = toNumber(hoy?.ingresos);
+  const egresosHoy = toNumber(hoy?.egresos);
   const cajaHoy = ingresosHoy - egresosHoy;
 
   const fechaHoy = new Date().toLocaleDateString("es-GT", {
@@ -154,13 +200,17 @@ export default function DashboardPage() {
     month: "long",
   });
 
-  const mesData = (data?.ventasPorMes ?? []).map((m) => ({
-    label: m.label,
-    ingresos: m.ingresos,
+  const ventasPorMes = asArray<VentaPorMes>(data?.ventasPorMes);
+  const mesData = ventasPorMes.map((m) => ({
+    label: m?.label ?? "",
+    ingresos: toNumber(m?.ingresos),
   }));
 
-  const maxIngreso =
-    mesData.length > 0 ? Math.max(...mesData.map((m) => m.ingresos)) : 0;
+  const maxIngreso = mesData.length > 0 ? Math.max(...mesData.map((m) => m.ingresos)) : 0;
+
+  const ventasHoy = asArray<VentaHoy>(data?.ventasHoy);
+  const topCategorias = asArray<TopCategoria>(data?.topCategorias);
+  const topProductos = asArray<TopProducto>(data?.topProductos);
 
   const [showVentasHoy, setShowVentasHoy] = useState(false);
   const [ventaExpandida, setVentaExpandida] = useState<string | null>(null);
@@ -195,39 +245,35 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {data && (
+      {data && !error && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KpiCard
               icon={Package}
               label="Productos"
               color="border-blue-500"
-              value={(data?.totalProductos ?? 0).toLocaleString()}
+              value={toNumber(data?.totalProductos).toLocaleString()}
               sub="en inventario"
             />
             <KpiCard
               icon={ShoppingCart}
               label="Ventas totales"
               color="border-violet-500"
-              value={(data?.totalVentas ?? 0).toLocaleString()}
+              value={toNumber(data?.totalVentas).toLocaleString()}
               sub="transacciones"
             />
             <KpiCard
               icon={TrendingUp}
               label="Ingresos totales"
               color="border-green-500"
-              value={`Q ${Number(ingresos ?? 0).toLocaleString("es-GT", {
-                minimumFractionDigits: 2,
-              })}`}
+              value={`Q ${ingresos.toLocaleString("es-GT", { minimumFractionDigits: 2 })}`}
               trend="up"
             />
             <KpiCard
               icon={DollarSign}
               label="Caja neta"
               color={caja >= 0 ? "border-emerald-500" : "border-red-500"}
-              value={`Q ${Number(caja ?? 0).toLocaleString("es-GT", {
-                minimumFractionDigits: 2,
-              })}`}
+              value={`Q ${caja.toLocaleString("es-GT", { minimumFractionDigits: 2 })}`}
               trend={caja >= 0 ? "up" : "down"}
             />
           </div>
@@ -237,35 +283,29 @@ export default function DashboardPage() {
               icon={TrendingDown}
               label="Egresos totales"
               color="border-red-500"
-              value={`Q ${Number(egresos ?? 0).toLocaleString("es-GT", {
-                minimumFractionDigits: 2,
-              })}`}
+              value={`Q ${egresos.toLocaleString("es-GT", { minimumFractionDigits: 2 })}`}
               trend="down"
             />
             <KpiCard
               icon={AlertTriangle}
               label="Bajo stock"
               color="border-orange-500"
-              value={(data?.bajosStock ?? 0).toString()}
-              sub={(data?.bajosStock ?? 0) > 0 ? "productos críticos" : "todo normal"}
+              value={toNumber(data?.bajosStock).toString()}
+              sub={toNumber(data?.bajosStock) > 0 ? "productos críticos" : "todo normal"}
             />
             <KpiCard
               icon={BarChart2}
               label="Existencia total"
               color="border-cyan-500"
-              value={(data?.existenciaTotal ?? 0).toLocaleString()}
+              value={toNumber(data?.existenciaTotal).toLocaleString()}
               sub="unidades"
             />
             <KpiCard
               icon={CalendarDays}
               label="Ventas de hoy"
               color="border-indigo-500"
-              value={`Q ${Number(ingresosHoy ?? 0).toLocaleString("es-GT", {
-                minimumFractionDigits: 2,
-              })}`}
-              sub={`Caja hoy: Q ${Number(cajaHoy ?? 0).toLocaleString("es-GT", {
-                minimumFractionDigits: 2,
-              })}`}
+              value={`Q ${ingresosHoy.toLocaleString("es-GT", { minimumFractionDigits: 2 })}`}
+              sub={`Caja hoy: Q ${cajaHoy.toLocaleString("es-GT", { minimumFractionDigits: 2 })}`}
               trend={ingresosHoy > 0 ? "up" : "neutral"}
             />
           </div>
@@ -282,14 +322,14 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {(data.ventasHoy?.length ?? 0) > 0 && (
+              {ventasHoy.length > 0 && (
                 <button
                   data-testid="btn-ver-ventas-hoy"
                   onClick={() => setShowVentasHoy((v) => !v)}
                   className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl transition-colors"
                 >
                   <Receipt size={13} />
-                  {data.ventasHoy?.length ?? 0} ventas
+                  {ventasHoy.length} ventas
                   {showVentasHoy ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                 </button>
               )}
@@ -307,9 +347,7 @@ export default function DashboardPage() {
                     Ingresos hoy
                   </p>
                   <p className="text-3xl font-black text-green-700">
-                    Q {Number(ingresosHoy ?? 0).toLocaleString("es-GT", {
-                      minimumFractionDigits: 2,
-                    })}
+                    Q {ingresosHoy.toLocaleString("es-GT", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
 
@@ -318,9 +356,7 @@ export default function DashboardPage() {
                     Egresos hoy
                   </p>
                   <p className="text-3xl font-black text-red-700">
-                    Q {Number(egresosHoy ?? 0).toLocaleString("es-GT", {
-                      minimumFractionDigits: 2,
-                    })}
+                    Q {egresosHoy.toLocaleString("es-GT", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
 
@@ -341,75 +377,77 @@ export default function DashboardPage() {
                       cajaHoy >= 0 ? "text-emerald-700" : "text-orange-700"
                     }`}
                   >
-                    Q {Number(cajaHoy ?? 0).toLocaleString("es-GT", {
-                      minimumFractionDigits: 2,
-                    })}
+                    Q {cajaHoy.toLocaleString("es-GT", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               </div>
             )}
 
-            {showVentasHoy && (data.ventasHoy?.length ?? 0) > 0 && (
+            {showVentasHoy && ventasHoy.length > 0 && (
               <div className="mt-5 border-t border-border pt-4 space-y-2" data-testid="panel-ventas-hoy">
-                {(data.ventasHoy ?? []).map((v) => (
-                  <div key={v.id} className="rounded-2xl border border-border bg-muted/20 overflow-hidden">
-                    <button
-                      data-testid={`venta-hoy-${v.id}`}
-                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/40 transition-colors"
-                      onClick={() =>
-                        setVentaExpandida(ventaExpandida === v.id ? null : v.id)
-                      }
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-xs text-muted-foreground flex-shrink-0 font-mono">
-                          {v.fecha?.split(" ")[1] ?? ""}
-                        </span>
-                        <p className="text-sm font-semibold truncate">
-                          {v.cliente && v.cliente !== "Contado"
-                            ? v.cliente
-                            : "Cliente general"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="font-extrabold text-primary text-sm">
-                          Q {parseFloat(v.total || "0").toFixed(2)}
-                        </span>
-                        {ventaExpandida === v.id ? (
-                          <ChevronUp size={14} className="text-muted-foreground" />
-                        ) : (
-                          <ChevronDown size={14} className="text-muted-foreground" />
-                        )}
-                      </div>
-                    </button>
+                {ventasHoy.map((v) => {
+                  const items = asArray<VentaItem>(v?.items);
 
-                    {ventaExpandida === v.id && (v.items?.length ?? 0) > 0 && (
-                      <div className="px-4 pb-3 border-t border-border/50">
-                        <table className="w-full text-xs mt-2">
-                          <thead>
-                            <tr className="text-muted-foreground">
-                              <th className="text-left py-1 font-medium">Producto</th>
-                              <th className="text-center py-1 font-medium">Cant.</th>
-                              <th className="text-right py-1 font-medium">Subtotal</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(v.items ?? []).map((item, ii) => (
-                              <tr key={ii} className="border-t border-border/30">
-                                <td className="py-1 text-foreground">{item.nombre}</td>
-                                <td className="py-1 text-center text-muted-foreground">
-                                  {item.cantidad}
-                                </td>
-                                <td className="py-1 text-right font-semibold text-primary">
-                                  Q {parseFloat(item.subtotal || "0").toFixed(2)}
-                                </td>
+                  return (
+                    <div key={v.id} className="rounded-2xl border border-border bg-muted/20 overflow-hidden">
+                      <button
+                        data-testid={`venta-hoy-${v.id}`}
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/40 transition-colors"
+                        onClick={() =>
+                          setVentaExpandida(ventaExpandida === v.id ? null : v.id)
+                        }
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="text-xs text-muted-foreground flex-shrink-0 font-mono">
+                            {v.fecha?.split(" ")[1] ?? ""}
+                          </span>
+                          <p className="text-sm font-semibold truncate">
+                            {v.cliente && v.cliente !== "Contado"
+                              ? v.cliente
+                              : "Cliente general"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="font-extrabold text-primary text-sm">
+                            Q {toNumber(v.total).toFixed(2)}
+                          </span>
+                          {ventaExpandida === v.id ? (
+                            <ChevronUp size={14} className="text-muted-foreground" />
+                          ) : (
+                            <ChevronDown size={14} className="text-muted-foreground" />
+                          )}
+                        </div>
+                      </button>
+
+                      {ventaExpandida === v.id && items.length > 0 && (
+                        <div className="px-4 pb-3 border-t border-border/50">
+                          <table className="w-full text-xs mt-2">
+                            <thead>
+                              <tr className="text-muted-foreground">
+                                <th className="text-left py-1 font-medium">Producto</th>
+                                <th className="text-center py-1 font-medium">Cant.</th>
+                                <th className="text-right py-1 font-medium">Subtotal</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                            </thead>
+                            <tbody>
+                              {items.map((item, ii) => (
+                                <tr key={ii} className="border-t border-border/30">
+                                  <td className="py-1 text-foreground">{item.nombre}</td>
+                                  <td className="py-1 text-center text-muted-foreground">
+                                    {item.cantidad}
+                                  </td>
+                                  <td className="py-1 text-right font-semibold text-primary">
+                                    Q {toNumber(item.subtotal).toFixed(2)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -469,7 +507,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {(data.topCategorias?.length ?? 0) > 0 && (
+            {topCategorias.length > 0 && (
               <div className="glass-card rounded-3xl p-6">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="w-9 h-9 rounded-2xl bg-amber-100 flex items-center justify-center">
@@ -481,9 +519,9 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {(data.topCategorias ?? []).map((cat, i) => {
-                    const max = data.topCategorias?.[0]?.cantidad ?? 1;
-                    const pct = Math.round((cat.cantidad / max) * 100);
+                  {topCategorias.map((cat, i) => {
+                    const max = topCategorias[0]?.cantidad ?? 1;
+                    const pct = Math.round((toNumber(cat.cantidad) / max) * 100);
                     return (
                       <div key={i}>
                         <div className="flex items-center justify-between mb-1">
@@ -510,7 +548,7 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {(data.topProductos?.length ?? 0) > 0 && (
+            {topProductos.length > 0 && (
               <div className="glass-card rounded-3xl p-6">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="w-9 h-9 rounded-2xl bg-green-100 flex items-center justify-center">
@@ -522,9 +560,9 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  {(data.topProductos ?? []).slice(0, 8).map((p, i) => {
-                    const maxQty = data.topProductos?.[0]?.cantidad ?? 1;
-                    const pct = Math.round((p.cantidad / maxQty) * 100);
+                  {topProductos.slice(0, 8).map((p, i) => {
+                    const maxQty = topProductos[0]?.cantidad ?? 1;
+                    const pct = Math.round((toNumber(p.cantidad) / maxQty) * 100);
                     return (
                       <div key={p.id} className="flex items-center gap-3 py-2">
                         <div
@@ -537,7 +575,7 @@ export default function DashboardPage() {
                           <div className="flex items-center justify-between mb-0.5">
                             <p className="font-semibold text-sm truncate max-w-[55%]">{p.nombre}</p>
                             <p className="font-extrabold text-sm text-primary">
-                              Q {p.total.toFixed(2)}
+                              Q {toNumber(p.total).toFixed(2)}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
