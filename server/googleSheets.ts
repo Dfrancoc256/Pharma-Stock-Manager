@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { google } from "googleapis";
 
 const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID!;
 
@@ -15,12 +15,12 @@ async function getSheetClient() {
   const auth = new google.auth.GoogleAuth({
     credentials: {
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
     },
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
 
-  _sheetClient = google.sheets({ version: 'v4', auth });
+  _sheetClient = google.sheets({ version: "v4", auth });
   _clientTs = Date.now();
   return _sheetClient;
 }
@@ -37,8 +37,8 @@ function invalidarCache(...hojas: string[]) {
 type SheetRow = Record<string, any>;
 
 function toNumber(value: any): number {
-  if (value === null || value === undefined || value === '') return 0;
-  const clean = String(value).replace(/,/g, '').replace(/Q/gi, '').trim();
+  if (value === null || value === undefined || value === "") return 0;
+  const clean = String(value).replace(/,/g, "").replace(/Q/gi, "").trim();
   const n = Number(clean);
   return Number.isFinite(n) ? n : 0;
 }
@@ -54,7 +54,7 @@ function rowsToObjects(rows: string[][]): SheetRow[] {
   return rows.slice(1).map((row) => {
     const obj: SheetRow = {};
     headers.forEach((h, i) => {
-      obj[h] = row[i] ?? '';
+      obj[h] = row[i] ?? "";
     });
     return obj;
   });
@@ -71,7 +71,7 @@ export async function leerHoja(nombreHoja: string): Promise<string[][]> {
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: nombreHoja,
-    valueRenderOption: 'FORMATTED_VALUE',
+    valueRenderOption: "FORMATTED_VALUE",
   });
 
   const data = (response.data.values as string[][]) || [];
@@ -85,8 +85,8 @@ export async function appendFila(nombreHoja: string, datos: any[]): Promise<void
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
     range: nombreHoja,
-    valueInputOption: 'USER_ENTERED',
-    insertDataOption: 'INSERT_ROWS',
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
     requestBody: { values: [datos] },
   });
   invalidarCache(nombreHoja);
@@ -98,11 +98,11 @@ export async function updateRango(rango: string, datos: any[][]): Promise<void> 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
     range: rango,
-    valueInputOption: 'USER_ENTERED',
+    valueInputOption: "USER_ENTERED",
     requestBody: { values: datos },
   });
 
-  const hoja = rango.split('!')[0];
+  const hoja = rango.split("!")[0];
   invalidarCache(hoja);
 }
 
@@ -110,7 +110,7 @@ export async function updateRango(rango: string, datos: any[][]): Promise<void> 
 export async function findRowIndex(hoja: string, colIndex: number, value: string): Promise<number> {
   const data = await leerHoja(hoja);
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][colIndex] ?? '').trim() === String(value).trim()) return i + 1;
+    if (String(data[i][colIndex] ?? "").trim() === String(value).trim()) return i + 1;
   }
   return -1;
 }
@@ -118,25 +118,25 @@ export async function findRowIndex(hoja: string, colIndex: number, value: string
 // ==================== STOCK / PRODUCTOS ====================
 
 export async function getStock() {
-  const rows = await leerHoja('Stock');
+  const rows = await leerHoja("Stock");
   const all = rowsToObjects(rows);
 
   return all.map((p) => ({
     ...p,
-    ID: String(p['ID'] ?? ''),
-    Nombre: p['Nombre'] ?? '',
-    Detalle: p['Detalle'] ?? '',
-    Casa: p['Casa'] ?? '',
-    Categoria: p['Categoria'] ?? '',
-    'Precio compra': toNumber(p['Precio compra']),
-    'Precio unidad': toNumber(p['Precio unidad']),
-    'Precio blister': toNumber(p['Precio blister']),
-    'precio caja': toNumber(p['precio caja']),
-    posicion: p['posicion'] ?? '',
-    Stock: toInt(p['Stock']),
-    drogueria: p['drogueria'] ?? '',
-    'Unidades blister': toInt(p['Unidades blister']),
-    'Unidades caja': toInt(p['Unidades caja']),
+    ID: String(p["ID"] ?? ""),
+    Nombre: p["Nombre"] ?? "",
+    Detalle: p["Detalle"] ?? "",
+    Casa: p["Casa"] ?? "",
+    Categoria: p["Categoria"] ?? "",
+    "Precio compra": toNumber(p["Precio compra"]),
+    "Precio unidad": toNumber(p["Precio unidad"]),
+    "Precio blister": toNumber(p["Precio blister"]),
+    "Precio caja": toNumber(p["precio caja"] ?? p["Precio caja"]),
+    Posicion: p["Posicion"] ?? p["posicion"] ?? "",
+    Stock: toInt(p["Stock"]),
+    Drogueria: p["Drogueria"] ?? p["drogueria"] ?? "",
+    "Unidades blister": toInt(p["Unidades blister"]),
+    "Unidades caja": toInt(p["Unidades caja"]),
   }));
 }
 
@@ -156,23 +156,23 @@ export async function createProductoSheet(prod: {
   unidadesCaja?: number;
   barcode?: string;
 }) {
-  const rows = await leerHoja('Stock');
+  const rows = await leerHoja("Stock");
   const lastId = rows.length > 1 ? parseInt(rows[rows.length - 1][0]) || 0 : 0;
   const newId = lastId + 1;
 
-  await appendFila('Stock', [
+  await appendFila("Stock", [
     newId,
     prod.nombre,
-    prod.detalle ?? '',
-    prod.casa ?? '',
-    prod.categoria ?? '',
+    prod.detalle ?? "",
+    prod.casa ?? "",
+    prod.categoria ?? "",
     toNumber(prod.precioCompra),
     toNumber(prod.precioUnidad),
     toNumber(prod.precioBlister ?? 0),
     toNumber(prod.precioCaja ?? 0),
-    prod.posicion ?? '',
+    prod.posicion ?? "",
     toInt(prod.stock),
-    prod.drogueria ?? '',
+    prod.drogueria ?? "",
     toInt(prod.unidadesBlister ?? 0),
     toInt(prod.unidadesCaja ?? 0),
   ]);
@@ -181,17 +181,17 @@ export async function createProductoSheet(prod: {
 }
 
 export async function updateStockSheet(id: string, newStock: number) {
-  const rows = await leerHoja('Stock');
+  const rows = await leerHoja("Stock");
   if (!rows || rows.length < 2) return;
 
   const headers = rows[0];
-  const stockColIdx = headers.findIndex((h: string) => h.trim().toLowerCase() === 'stock');
+  const stockColIdx = headers.findIndex((h: string) => h.trim().toLowerCase() === "stock");
   if (stockColIdx < 0) return;
 
   const colLetter = String.fromCharCode(65 + stockColIdx);
 
   for (let i = 1; i < rows.length; i++) {
-    const idFila = String(rows[i][0] ?? '').trim();
+    const idFila = String(rows[i][0] ?? "").trim();
     const coincide =
       idFila === String(id).trim() ||
       (!isNaN(Number(idFila)) &&
@@ -206,11 +206,11 @@ export async function updateStockSheet(id: string, newStock: number) {
 }
 
 export async function deleteProductoSheet(id: string) {
-  const rows = await leerHoja('Stock');
+  const rows = await leerHoja("Stock");
   for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0] ?? '').trim() === String(id).trim()) {
+    if (String(rows[i][0] ?? "").trim() === String(id).trim()) {
       const cols = rows[i].length;
-      const emptyCols = Array(cols).fill('');
+      const emptyCols = Array(cols).fill("");
       await updateRango(`Stock!A${i + 1}`, [emptyCols]);
       return;
     }
@@ -220,38 +220,38 @@ export async function deleteProductoSheet(id: string) {
 // ==================== VENTAS ====================
 
 export async function getVentas() {
-  const rows = await leerHoja('Ventas');
+  const rows = await leerHoja("Ventas");
   const all = rowsToObjects(rows);
 
   return all.map((v) => ({
     ...v,
-    ID_Venta: String(v['ID_Venta'] ?? v['ID'] ?? ''),
-    Fecha: v['Fecha'] ?? '',
-    Usuario: v['Usuario'] ?? '',
-    Cliente: v['Cliente'] ?? '',
-    Tipo: v['Tipo'] ?? '',
-    Fiador_ID: v['Fiador_ID'] ?? '',
-    MetodoPago: v['MetodoPago'] ?? '',
-    Total: toNumber(v['Total']),
+    ID_Venta: String(v["ID_Venta"] ?? v["ID"] ?? ""),
+    Fecha: v["Fecha"] ?? "",
+    Usuario: v["Usuario"] ?? "",
+    Cliente: v["Cliente"] ?? "",
+    Tipo: v["Tipo"] ?? "",
+    Fiador_ID: v["Fiador_ID"] ?? "",
+    MetodoPago: v["Metodo_pago"] ?? v["MetodoPago"] ?? "",
+    Total: toNumber(v["Total"]),
   }));
 }
 
 export async function getDetalleVenta(idVenta: string) {
-  const rows = await leerHoja('Detalle_Venta');
+  const rows = await leerHoja("Detalle_Venta");
   const all = rowsToObjects(rows).map((r) => ({
     ...r,
-    ID_Venta: String(r['ID_Venta'] ?? ''),
-    Producto_ID: String(r['Producto_ID'] ?? ''),
-    Nombre: r['Nombre'] ?? '',
-    TipoPrecio: r['TipoPrecio'] ?? '',
-    Cantidad: toInt(r['Cantidad']),
-    PrecioUnitario: toNumber(r['PrecioUnitario']),
-    Subtotal: toNumber(r['Subtotal']),
-    CostoUnitario: toNumber(r['CostoUnitario']),
-    Utilidad: toNumber(r['Utilidad']),
+    ID_Venta: String(r["Detalle_Venta"] ?? r["ID_Venta"] ?? ""),
+    Producto_ID: String(r["Producto_ID"] ?? ""),
+    Nombre: r["Nombre"] ?? "",
+    TipoPrecio: r["Tipo_precio"] ?? r["TipoPrecio"] ?? "",
+    Cantidad: toInt(r["Cantidad"]),
+    PrecioUnitario: toNumber(r["Precio_unitario"] ?? r["PrecioUnitario"]),
+    Subtotal: toNumber(r["Subtotal"]),
+    CostoUnitario: toNumber(r["Costo_unitario"] ?? r["CostoUnitario"]),
+    Utilidad: toNumber(r["Utilidad"]),
   }));
 
-  return all.filter((r) => r['ID_Venta'] === String(idVenta));
+  return all.filter((r) => r["ID_Venta"] === String(idVenta));
 }
 
 export async function createVentaSheet(params: {
@@ -273,11 +273,11 @@ export async function createVentaSheet(params: {
     utilidad: number;
   }[];
 }) {
-  const rows = await leerHoja('Ventas');
+  const rows = await leerHoja("Ventas");
   const lastId = rows.length > 1 ? parseInt(rows[rows.length - 1][0]) || 0 : 0;
   const newId = (lastId + 1).toString();
 
-  await appendFila('Ventas', [
+  await appendFila("Ventas", [
     newId,
     params.fecha,
     params.usuario,
@@ -288,13 +288,13 @@ export async function createVentaSheet(params: {
     toNumber(params.total),
   ]);
 
-  const stockRows = await leerHoja('Stock');
+  const stockRows = await leerHoja("Stock");
   const stockHeaders = stockRows[0] || [];
-  const stockColIdx = stockHeaders.findIndex((h: string) => h.trim().toLowerCase() === 'stock');
+  const stockColIdx = stockHeaders.findIndex((h: string) => h.trim().toLowerCase() === "stock");
   const stockColLetter = stockColIdx >= 0 ? String.fromCharCode(65 + stockColIdx) : null;
 
   for (const item of params.items) {
-    await appendFila('Detalle_Venta', [
+    await appendFila("Detalle_Venta", [
       newId,
       item.productoId,
       item.nombre,
@@ -308,7 +308,7 @@ export async function createVentaSheet(params: {
 
     if (stockColLetter) {
       for (let i = 1; i < stockRows.length; i++) {
-        const idFila = String(stockRows[i][0] ?? '').trim();
+        const idFila = String(stockRows[i][0] ?? "").trim();
         const idBuscado = String(item.productoId).trim();
         const coincide =
           idFila === idBuscado ||
@@ -333,18 +333,18 @@ export async function createVentaSheet(params: {
 // ==================== MOVIMIENTOS ====================
 
 export async function getMovimientos() {
-  const rows = await leerHoja('Movimientos');
+  const rows = await leerHoja("Movimientos");
   const all = rowsToObjects(rows);
 
   return all.map((m) => ({
     ...m,
-    ID_Movimiento: String(m['ID_Movimiento'] ?? m['ID'] ?? ''),
-    Fecha: m['Fecha'] ?? '',
-    Tipo: m['Tipo'] ?? '',
-    Concepto: m['Concepto'] ?? '',
-    Monto: toNumber(m['Monto']),
-    Usuario: m['Usuario'] ?? '',
-    Referencia: m['Referencia'] ?? '',
+    ID_Movimiento: String(m["ID_Movimiento"] ?? m["ID"] ?? ""),
+    Fecha: m["Fecha"] ?? "",
+    Tipo: m["Tipo"] ?? "",
+    Concepto: m["Concepto"] ?? "",
+    Monto: toNumber(m["Monto"]),
+    Usuario: m["Usuario"] ?? "",
+    Referencia: m["Referencia"] ?? "",
   }));
 }
 
@@ -356,11 +356,11 @@ export async function createMovimientoSheet(params: {
   usuario: string;
   referencia: string;
 }) {
-  const rows = await leerHoja('Movimientos');
+  const rows = await leerHoja("Movimientos");
   const lastId = rows.length > 1 ? parseInt(rows[rows.length - 1][0]) || 0 : 0;
   const newId = lastId + 1;
 
-  await appendFila('Movimientos', [
+  await appendFila("Movimientos", [
     newId,
     params.fecha,
     params.tipo,
@@ -376,18 +376,18 @@ export async function createMovimientoSheet(params: {
 // ==================== FIADORES ====================
 
 export async function getFiadores() {
-  const rows = await leerHoja('Fiadores');
+  const rows = await leerHoja("Fiadores");
   const all = rowsToObjects(rows);
 
   return all.map((f) => ({
     ...f,
-    Fiador_ID: String(f['Fiador_ID'] ?? f['ID'] ?? ''),
-    Nombre: f['Nombre'] ?? '',
-    Telefono: f['Telefono'] ?? '',
-    Direccion: f['Direccion'] ?? '',
-    Limite_credito: toNumber(f['Limite_credito'] ?? f['LimiteCredito']),
-    Saldo_actual: toNumber(f['Saldo_actual']),
-    Activo: String(f['Activo'] ?? 'TRUE'),
+    Fiador_ID: String(f["Fiador_ID"] ?? f["ID"] ?? ""),
+    Nombre: f["Nombre"] ?? "",
+    Telefono: f["Telefono"] ?? "",
+    Direccion: f["Direccion"] ?? "",
+    Limite_credito: toNumber(f["Limite_credito"] ?? f["LimiteCredito"]),
+    Saldo_actual: toNumber(f["Saldo_actual"]),
+    Activo: String(f["Activo"] ?? "TRUE"),
   }));
 }
 
@@ -398,33 +398,33 @@ export async function createFiadorSheet(params: {
   limiteCredito?: number;
   saldoInicial?: number;
 }) {
-  const rows = await leerHoja('Fiadores');
+  const rows = await leerHoja("Fiadores");
   const lastId = rows.length > 1 ? parseInt(rows[rows.length - 1][0]) || 0 : 0;
   const newId = lastId + 1;
 
-  await appendFila('Fiadores', [
+  await appendFila("Fiadores", [
     newId,
     params.nombre,
     params.telefono,
     params.direccion,
     toNumber(params.limiteCredito ?? 0),
     toNumber(params.saldoInicial ?? 0),
-    'TRUE',
+    "TRUE",
   ]);
 
   return { id: newId, ...params };
 }
 
 export async function updateFiadorSaldoSheet(id: string, nuevoSaldo: number) {
-  const rows = await leerHoja('Fiadores');
+  const rows = await leerHoja("Fiadores");
   if (!rows || rows.length < 2) return;
 
   const headers = rows[0];
-  const saldoColIdx = headers.findIndex((h: string) => h.trim().toLowerCase() === 'saldo_actual');
-  const colLetter = saldoColIdx >= 0 ? String.fromCharCode(65 + saldoColIdx) : 'F';
+  const saldoColIdx = headers.findIndex((h: string) => h.trim().toLowerCase() === "saldo_actual");
+  const colLetter = saldoColIdx >= 0 ? String.fromCharCode(65 + saldoColIdx) : "F";
 
   for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0] ?? '').trim() === String(id).trim()) {
+    if (String(rows[i][0] ?? "").trim() === String(id).trim()) {
       await updateRango(`Fiadores!${colLetter}${i + 1}`, [[toNumber(nuevoSaldo)]]);
       return;
     }
@@ -434,12 +434,17 @@ export async function updateFiadorSaldoSheet(id: string, nuevoSaldo: number) {
 // ==================== USUARIOS ====================
 
 export async function getUsuariosSheet() {
-  const rows = await leerHoja('Usuarios');
+  const rows = await leerHoja("Usuarios");
   return rowsToObjects(rows);
 }
 
-export async function createUsuarioSheet(params: { usuario: string; pass: string; rol: string; activo: string }) {
-  await appendFila('Usuarios', [params.usuario, params.pass, params.rol, params.activo]);
+export async function createUsuarioSheet(params: {
+  usuario: string;
+  pass: string;
+  rol: string;
+  activo: string;
+}) {
+  await appendFila("Usuarios", [params.usuario, params.pass, params.rol, params.activo]);
   return params;
 }
 
@@ -447,21 +452,21 @@ export async function updateUsuarioSheet(
   usuario: string,
   updates: { pass?: string; rol?: string; activo?: string }
 ) {
-  const rows = await leerHoja('Usuarios');
+  const rows = await leerHoja("Usuarios");
   if (!rows || rows.length < 2) return;
 
   const headers = rows[0];
   const colIndex = (name: string) => headers.findIndex((h: string) => h.trim() === name);
-  const userCol = colIndex('Usuario');
+  const userCol = colIndex("Usuario");
 
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][userCol] === usuario) {
-      const passCol = colIndex('Pass');
-      const rolCol = colIndex('Rol');
-      const activoCol = colIndex('Activo');
+      const passCol = colIndex("Pass");
+      const rolCol = colIndex("Rol");
+      const activoCol = colIndex("Activo");
       const colLetter = (n: number) => String.fromCharCode(65 + n);
 
-      if (updates.pass !== undefined && updates.pass !== '' && passCol >= 0) {
+      if (updates.pass !== undefined && updates.pass !== "" && passCol >= 0) {
         await updateRango(`Usuarios!${colLetter(passCol)}${i + 1}`, [[updates.pass]]);
       }
 

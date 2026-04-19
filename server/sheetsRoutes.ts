@@ -19,11 +19,7 @@ export function registerSheetsRoutes(app: Express) {
       const toNumber = (value: unknown): number => {
         if (typeof value === "number") return Number.isFinite(value) ? value : 0;
         if (typeof value === "string") {
-          const cleaned = value
-            .trim()
-            .replace(/\s/g, "")
-            .replace(/,/g, "")
-            .replace(/Q/gi, "");
+          const cleaned = value.trim().replace(/\s/g, "").replace(/,/g, "").replace(/Q/gi, "");
           const n = Number(cleaned);
           return Number.isFinite(n) ? n : 0;
         }
@@ -37,27 +33,21 @@ export function registerSheetsRoutes(app: Express) {
       const totalProductos = safeStock.filter((p) => p?.ID && p?.Nombre).length;
       const totalVentas = safeVentas.length;
 
-      const existenciaTotal = safeStock.reduce((acc, p) => {
-        return acc + toNumber(p?.Stock);
-      }, 0);
+      const existenciaTotal = safeStock.reduce((acc, p) => acc + toNumber(p?.Stock), 0);
 
       const bajosStock = safeStock.filter((p) => {
         const s = toNumber(p?.Stock);
         return s > 0 && s <= 5;
       }).length;
 
-      const ingresos = safeVentas.reduce((acc, v) => {
-        return acc + toNumber(v?.Total);
-      }, 0);
+      const ingresos = safeVentas.reduce((acc, v) => acc + toNumber(v?.Total), 0);
 
       const egresos = safeMovimientos
         .filter((m) => {
           const tipo = String(m?.Tipo ?? "").toLowerCase();
           return tipo.includes("egreso") || tipo.includes("salida") || tipo.includes("gasto");
         })
-        .reduce((acc, m) => {
-          return acc + toNumber(m?.Monto);
-        }, 0);
+        .reduce((acc, m) => acc + toNumber(m?.Monto), 0);
 
       const cajaNeta = ingresos - egresos;
 
@@ -138,9 +128,7 @@ export function registerSheetsRoutes(app: Express) {
         }
       });
 
-      const ventasPorDia = Array.from(ventasPorDiaMap.values()).sort((a, b) =>
-        a.fecha.localeCompare(b.fecha)
-      );
+      const ventasPorDia = Array.from(ventasPorDiaMap.values()).sort((a, b) => a.fecha.localeCompare(b.fecha));
 
       const ventasPorMesMap = new Map<string, { label: string; ingresos: number; order: number }>();
 
@@ -250,7 +238,15 @@ export function registerSheetsRoutes(app: Express) {
     try {
       const { fecha, usuario, cliente, tipo, fiadorId, metodoPago, total, items } = req.body;
 
-      if (!cliente || !tipo || !metodoPago || total === undefined || total === null || !Array.isArray(items) || items.length === 0) {
+      if (
+        !cliente ||
+        !tipo ||
+        !metodoPago ||
+        total === undefined ||
+        total === null ||
+        !Array.isArray(items) ||
+        items.length === 0
+      ) {
         return res.status(400).json({
           ok: false,
           message: "Datos incompletos para registrar la venta",
@@ -258,7 +254,7 @@ export function registerSheetsRoutes(app: Express) {
       }
 
       const fechaFinal = fecha || new Date().toISOString().slice(0, 19).replace("T", " ");
-      const usuarioFinal = usuario || "admin";
+      const usuarioFinal = usuario || "Sistema";
 
       const result = await createVentaSheet({
         fecha: fechaFinal,
@@ -328,7 +324,7 @@ export function registerSheetsRoutes(app: Express) {
         tipo: String(tipo),
         concepto: String(concepto),
         monto: Number(monto) || 0,
-        usuario: usuario || "admin",
+        usuario: usuario || "Sistema",
         referencia: referencia || "",
       });
 
