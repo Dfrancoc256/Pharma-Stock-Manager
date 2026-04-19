@@ -2,13 +2,29 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import {
-  Package, TrendingUp, TrendingDown, AlertTriangle, DollarSign,
-  ShoppingCart, BarChart2, ArrowUpRight, ArrowDownRight, CalendarDays,
-  ChevronDown, ChevronUp, Receipt
+  Package,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  DollarSign,
+  ShoppingCart,
+  BarChart2,
+  ArrowUpRight,
+  ArrowDownRight,
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+  Receipt,
 } from "lucide-react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Cell
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
 } from "recharts";
 
 interface DashboardData {
@@ -32,16 +48,27 @@ interface DashboardData {
     total: string;
     items: { nombre: string; cantidad: string; subtotal: string }[];
   }[];
-  topProductos: { id: string; nombre: string; total: number; cantidad: number }[];
+  topProductos?: { id: string; nombre: string; total: number; cantidad: number }[];
   ventasPorDia?: { fecha: string; ingresos: number; egresos: number }[];
   ventasPorHora?: { hora: string; ventas: number }[];
   topCategorias?: { nombre: string; cantidad: number }[];
   ventasPorMes?: { label: string; ingresos: number; order: number }[];
 }
 
+interface DashboardResponse {
+  ok: boolean;
+  data: DashboardData;
+}
+
 const BAR_COLORS = [
-  "#10b981", "#3b82f6", "#8b5cf6", "#f59e0b",
-  "#ef4444", "#06b6d4", "#84cc16", "#f97316",
+  "#10b981",
+  "#3b82f6",
+  "#8b5cf6",
+  "#f59e0b",
+  "#ef4444",
+  "#06b6d4",
+  "#84cc16",
+  "#f97316",
 ];
 
 const CustomTooltipMes = ({ active, payload, label }: any) => {
@@ -51,7 +78,8 @@ const CustomTooltipMes = ({ active, payload, label }: any) => {
     <div className="bg-white border border-border rounded-2xl shadow-xl p-3 text-sm min-w-[160px]">
       <p className="font-bold text-muted-foreground mb-1">{label}</p>
       <p className="font-extrabold text-primary">
-        Q {Number(payload?.[0]?.value ?? 0).toLocaleString("es-GT", {
+        Q{" "}
+        {Number(payload?.[0]?.value ?? 0).toLocaleString("es-GT", {
           minimumFractionDigits: 2,
         })}
       </p>
@@ -103,7 +131,9 @@ export default function DashboardPage() {
     queryFn: async () => {
       const res = await fetch("/api/sheets/dashboard", { credentials: "include" });
       if (!res.ok) throw new Error("Error cargando dashboard");
-      return res.json();
+
+      const json: DashboardResponse = await res.json();
+      return json.data;
     },
     refetchInterval: 60000,
   });
@@ -160,8 +190,7 @@ export default function DashboardPage() {
           <AlertTriangle className="mx-auto mb-3" size={40} />
           <p className="font-semibold">No se pudo conectar con Google Sheets.</p>
           <p className="text-sm text-muted-foreground mt-1">
-            Verifica que la hoja tenga las pestañas: Stock, Ventas, Detalle_Venta,
-            Movimientos
+            Verifica que la hoja tenga las pestañas: Stock, Ventas, Detalle_Venta, Movimientos
           </p>
         </div>
       )}
@@ -322,7 +351,7 @@ export default function DashboardPage() {
 
             {showVentasHoy && (data.ventasHoy?.length ?? 0) > 0 && (
               <div className="mt-5 border-t border-border pt-4 space-y-2" data-testid="panel-ventas-hoy">
-                {data.ventasHoy!.map((v) => (
+                {(data.ventasHoy ?? []).map((v) => (
                   <div key={v.id} className="rounded-2xl border border-border bg-muted/20 overflow-hidden">
                     <button
                       data-testid={`venta-hoy-${v.id}`}
@@ -364,7 +393,7 @@ export default function DashboardPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {v.items.map((item, ii) => (
+                            {(v.items ?? []).map((item, ii) => (
                               <tr key={ii} className="border-t border-border/30">
                                 <td className="py-1 text-foreground">{item.nombre}</td>
                                 <td className="py-1 text-center text-muted-foreground">
@@ -452,8 +481,8 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {data.topCategorias!.map((cat, i) => {
-                    const max = data.topCategorias![0].cantidad;
+                  {(data.topCategorias ?? []).map((cat, i) => {
+                    const max = data.topCategorias?.[0]?.cantidad ?? 1;
                     const pct = Math.round((cat.cantidad / max) * 100);
                     return (
                       <div key={i}>
