@@ -387,50 +387,64 @@ export default function POSPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sheets/stock"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/sheets/fiadores"] });
+      try {
+        queryClient.invalidateQueries({ queryKey: ["/api/sheets/stock"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/sheets/fiadores"] });
 
-      const total = cartTotal;
-      const email = tipo === "fiado" && fiadorModo === "nuevo" ? nuevoFiadorEmail : "";
-      const telefono =
-        tipo === "fiado" && fiadorModo === "nuevo"
-          ? nuevoFiadorTel
-          : tipo === "fiado"
-            ? fiadores.find((f) => f.Fiador_ID === fiadorId)?.Telefono || ""
+        const total = cartTotal;
+
+        const listaFiadores = safeArray<Fiador>(fiadores);
+
+        const email =
+          tipo === "fiado" && fiadorModo === "nuevo"
+            ? (nuevoFiadorEmail || "")
             : "";
-      const nombre =
-        tipo === "fiado"
-          ? fiadorModo === "nuevo"
-            ? nuevoFiadorNombre
-            : fiadores.find((f) => f.Fiador_ID === fiadorId)?.Nombre || ""
-          : clienteNombre || "Contado";
 
-      setReceiptData({
-        items: [...cart],
-        total,
-        fecha: format(new Date(), "dd/MM/yyyy HH:mm"),
-        paid: tipo === "contado" ? parseFloat(amountPaid) : undefined,
-        change: tipo === "contado" ? parseFloat(amountPaid) - total : undefined,
-        clienteNombre: nombre,
-        clienteTelefono: telefono,
-        clienteEmail: email,
-      });
+        const telefono =
+          tipo === "fiado" && fiadorModo === "nuevo"
+            ? (nuevoFiadorTel || "")
+            : tipo === "fiado"
+              ? (listaFiadores.find((f) => f.Fiador_ID === fiadorId)?.Telefono || "")
+              : "";
 
-      setShareWhatsapp(telefono.replace(/\D/g, ""));
-      setShareEmail(email);
-      setIsShareOpen(true);
-      setCart([]);
-      setIsCheckoutOpen(false);
-      setTipo("contado");
-      setFiadorId("");
-      setClienteNombre("");
-      setAmountPaid("");
-      setFiadorModo("existente");
-      setNuevoFiadorNombre("");
-      setNuevoFiadorTel("");
-      setNuevoFiadorDir("");
-      setNuevoFiadorLimite("500");
-      setNuevoFiadorEmail("");
+        const nombre =
+          tipo === "fiado"
+            ? fiadorModo === "nuevo"
+              ? (nuevoFiadorNombre || "")
+              : (listaFiadores.find((f) => f.Fiador_ID === fiadorId)?.Nombre || "")
+            : (clienteNombre || "Contado");
+
+        setReceiptData({
+          items: Array.isArray(cart) ? [...cart] : [],
+          total,
+          fecha: format(new Date(), "dd/MM/yyyy HH:mm"),
+          paid: tipo === "contado" ? parseFloat(amountPaid || "0") : undefined,
+          change: tipo === "contado" ? parseFloat(amountPaid || "0") - total : undefined,
+          clienteNombre: nombre,
+          clienteTelefono: telefono,
+          clienteEmail: email,
+        });
+
+        setShareWhatsapp(String(telefono || "").replace(/\D/g, ""));
+        setShareEmail(String(email || ""));
+        setIsShareOpen(true);
+
+        setCart([]);
+        setIsCheckoutOpen(false);
+        setTipo("contado");
+        setFiadorId("");
+        setClienteNombre("");
+        setAmountPaid("");
+        setFiadorModo("existente");
+        setNuevoFiadorNombre("");
+        setNuevoFiadorTel("");
+        setNuevoFiadorDir("");
+        setNuevoFiadorLimite("500");
+        setNuevoFiadorEmail("");
+      } catch (error) {
+        console.error("Error en onSuccess de la venta:", error);
+        alert("La venta se guardó, pero hubo un error al mostrar el recibo.");
+      }
     },
   });
 
