@@ -2,10 +2,27 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import {
-  Search, Plus, Minus, Trash2, ReceiptText, UserPlus,
-  ShoppingCart, PackageSearch, Sparkles, X, Loader2, Info,
-  Clock, AlertTriangle, CheckCircle, BookOpen, ChevronRight,
-  MessageCircle, Mail, Printer, Share2
+  Search,
+  Plus,
+  Minus,
+  Trash2,
+  ReceiptText,
+  UserPlus,
+  ShoppingCart,
+  PackageSearch,
+  Sparkles,
+  X,
+  Loader2,
+  Info,
+  Clock,
+  AlertTriangle,
+  CheckCircle,
+  BookOpen,
+  ChevronRight,
+  MessageCircle,
+  Mail,
+  Printer,
+  Share2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
@@ -64,8 +81,12 @@ function getPrecio(p: Producto, tipo: TipoPrecio): number {
   return parseFloat(p["Precio unidad"] || "0");
 }
 
-function asArray<T>(value: unknown): T[] {
-  return Array.isArray(value) ? value : [];
+function safeArray<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === "object" && Array.isArray((value as any).data)) {
+    return (value as any).data;
+  }
+  return [];
 }
 
 function unwrapArrayResponse<T>(json: any): T[] {
@@ -319,27 +340,27 @@ export default function POSPage() {
   const [aiSugerencia, setAISugerencia] = useState("");
   const [aiError, setAIError] = useState("");
 
-  const { data: productos = [], isLoading } = useQuery<Producto[]>({
+  const { data: productosRaw, isLoading } = useQuery({
     queryKey: ["/api/sheets/stock"],
     queryFn: async () => {
       const res = await fetch("/api/sheets/stock", { credentials: "include" });
       if (!res.ok) throw new Error("Error cargando productos");
-
-      const json = await res.json();
-      return unwrapArrayResponse<Producto>(json);
+      return res.json();
     },
   });
 
-  const { data: fiadores = [] } = useQuery<Fiador[]>({
+  const productos: Producto[] = safeArray<Producto>(productosRaw);
+
+  const { data: fiadoresRaw } = useQuery({
     queryKey: ["/api/sheets/fiadores"],
     queryFn: async () => {
       const res = await fetch("/api/sheets/fiadores", { credentials: "include" });
       if (!res.ok) return [];
-
-      const json = await res.json();
-      return unwrapArrayResponse<Fiador>(json);
+      return res.json();
     },
   });
+
+  const fiadores: Fiador[] = safeArray<Fiador>(fiadoresRaw);
 
   const createFiador = useMutation({
     mutationFn: async (body: any) => {
@@ -414,8 +435,8 @@ export default function POSPage() {
   });
 
   const localFiltered = useMemo(() => {
-    const listaProductos = asArray<Producto>(productos);
-    const base = listaProductos.filter((p) => p?.ID && p?.Nombre);
+    const listaProductos = safeArray<Producto>(productos);
+    const base = safeArray<Producto>(listaProductos).filter((p) => p?.ID && p?.Nombre);
 
     if (!search.trim()) return base;
 
@@ -430,11 +451,15 @@ export default function POSPage() {
   }, [search, productos]);
 
   const displayedProducts = useMemo(() => {
-    const listaProductos = asArray<Producto>(productos);
+    const listaProductos = safeArray<Producto>(productos);
+    const listaIA = Array.isArray(aiResultados) ? aiResultados : null;
 
-    if (aiResultados !== null) {
-      return aiResultados
-        .map((r) => ({ result: r, producto: listaProductos.find((p) => p.ID === r.id) }))
+    if (listaIA !== null) {
+      return listaIA
+        .map((r) => ({
+          result: r,
+          producto: listaProductos.find((p) => p.ID === r.id),
+        }))
         .filter((x) => x.producto) as { result: AIResultado; producto: Producto }[];
     }
 
@@ -717,8 +742,8 @@ export default function POSPage() {
     try {
       const res = await apiRequest("POST", "/api/ai/buscar", { query: search.trim() });
       const data = await res.json();
-      setAIResultados(data.resultados || []);
-      setAISugerencia(data.sugerencia || "");
+      setAIResultados(Array.isArray(data?.resultados) ? data.resultados : []);
+      setAISugerencia(typeof data?.sugerencia === "string" ? data.sugerencia : "");
     } catch {
       setAIError("No se pudo conectar con la IA. Intenta de nuevo.");
     } finally {
@@ -793,7 +818,7 @@ export default function POSPage() {
           {aiResultados !== null && !aiError && (
             <div className="mb-2 text-xs text-muted-foreground px-1 flex items-center gap-2">
               <Sparkles size={11} className="text-violet-500" />
-              <span>{aiResultados.length} resultado(s) IA para "{search}"</span>
+              <span>{Array.isArray(aiResultados) ? aiResultados.length : 0} resultado(s) IA para "{search}"</span>
               <span>·</span>
               <button onClick={clearSearch} className="text-violet-600 underline">
                 Ver todos
@@ -1021,7 +1046,6 @@ export default function POSPage() {
         />
       )}
 
-      {/* Mantengo el resto del archivo sin cambios funcionales */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="glass-card rounded-3xl w-full max-w-md p-8 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
@@ -1103,6 +1127,106 @@ export default function POSPage() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {tipo === "fiado" && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2 flex items-center gap-1">
+                      <UserPlus size={16} /> Fiador
+                    </label>
+                    <div className="flex gap-2 mb-3">
+                      {(["existente", "nuevo"] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setFiadorModo(m)}
+                          className={`flex-1 py-2 rounded-xl font-bold border-2 interactive-btn text-sm ${
+                            fiadorModo === m
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground"
+                          }`}
+                        >
+                          {m === "existente" ? "Existente" : "+ Nuevo"}
+                        </button>
+                      ))}
+                    </div>
+
+                    {fiadorModo === "existente" && (
+                      <select className="input-field" value={fiadorId} onChange={(e) => setFiadorId(e.target.value)}>
+                        <option value="">-- Seleccionar fiador --</option>
+                        {safeArray<Fiador>(fiadores)
+                          .filter((f) => f.Fiador_ID)
+                          .map((f) => (
+                            <option key={f.Fiador_ID} value={f.Fiador_ID}>
+                              {f.Nombre} (Saldo: Q {parseFloat(f.Saldo_actual || "0").toFixed(2)})
+                            </option>
+                          ))}
+                      </select>
+                    )}
+
+                    {fiadorModo === "nuevo" && (
+                      <div className="space-y-2 bg-muted/30 rounded-2xl p-4 border border-border/50">
+                        <div>
+                          <label className="block text-xs font-semibold mb-1 text-muted-foreground">Nombre *</label>
+                          <input
+                            className="input-field"
+                            placeholder="Nombre completo"
+                            value={nuevoFiadorNombre}
+                            onChange={(e) => setNuevoFiadorNombre(e.target.value)}
+                            data-testid="input-nuevo-fiador-nombre"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold mb-1 text-muted-foreground">Teléfono</label>
+                          <input
+                            className="input-field"
+                            placeholder="502xxxxxxxx"
+                            value={nuevoFiadorTel}
+                            onChange={(e) => setNuevoFiadorTel(e.target.value)}
+                            data-testid="input-nuevo-fiador-tel"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold mb-1 text-muted-foreground">
+                            Correo electrónico
+                          </label>
+                          <input
+                            type="email"
+                            className="input-field"
+                            placeholder="correo@ejemplo.com"
+                            value={nuevoFiadorEmail}
+                            onChange={(e) => setNuevoFiadorEmail(e.target.value)}
+                            data-testid="input-nuevo-fiador-email"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold mb-1 text-muted-foreground">Dirección</label>
+                          <input
+                            className="input-field"
+                            placeholder="Dirección"
+                            value={nuevoFiadorDir}
+                            onChange={(e) => setNuevoFiadorDir(e.target.value)}
+                            data-testid="input-nuevo-fiador-dir"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold mb-1 text-muted-foreground">
+                            Límite de crédito (Q)
+                          </label>
+                          <input
+                            type="number"
+                            className="input-field"
+                            placeholder="500.00"
+                            value={nuevoFiadorLimite}
+                            onChange={(e) => setNuevoFiadorLimite(e.target.value)}
+                            data-testid="input-nuevo-fiador-limite"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
