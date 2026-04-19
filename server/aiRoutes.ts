@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import { getStock, getMovimientos } from "./googleSheets";
 
 let _groqClient: OpenAI | null = null;
+
 function getGroq(): OpenAI {
   if (!_groqClient) {
     const apiKey = process.env.GROQ_API_KEY;
@@ -21,25 +22,28 @@ function getGroq(): OpenAI {
 // Extrae JSON de una respuesta que puede venir con markdown ```json ... ```
 function extractJson(raw: string): any {
   if (!raw) return {};
-  const cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  const cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+
   try {
     return JSON.parse(cleaned);
   } catch {
-    // Busca el primer bloque { ... } o [ ... ]
-    const match = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    const match = cleaned.match(/({[\s\S]*}|\[[\s\S]*\])/);
     if (match) {
-      try { return JSON.parse(match[1]); } catch { return {}; }
+      try {
+        return JSON.parse(match[1]);
+      } catch {
+        return {};
+      }
     }
     return {};
   }
 }
 
-function parseNum(val: string): number {
-  return parseFloat(String(val).replace(",", ".")) || 0;
+function parseNum(val: unknown): number {
+  return parseFloat(String(val ?? "").replace(",", ".")) || 0;
 }
 
 export function registerAIRoutes(app: Express) {
-
   // POST /api/ai/info-producto - Dosificación y recomendaciones de un producto específico
   app.post("/api/ai/info-producto", async (req, res) => {
     const { id, nombre, detalle, categoria } = req.body;
@@ -64,19 +68,23 @@ Responde SOLO con JSON válido en este formato (sin markdown, sin explicación):
   "requierReceta": true
 }
 Sé preciso, práctico y usa lenguaje sencillo para Guatemala.
-Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instrucciones de uso.`
+Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instrucciones de uso.`,
           },
           {
             role: "user",
-            content: `Producto: ${nombre}${detalle ? ` ${detalle}` : ""}${categoria ? ` (Categoría: ${categoria})` : ""}`
-          }
+            content: `Producto: ${nombre}${detalle ? ` ${detalle}` : ""}${categoria ? ` (Categoría: ${categoria})` : ""}`,
+          },
         ],
         max_tokens: 600,
       });
 
       const content = completion.choices[0]?.message?.content || "{}";
       const parsed = extractJson(content);
-      res.json({ ...parsed, producto: { id, nombre, detalle, categoria } });
+
+      res.json({
+        ...parsed,
+        producto: { id, nombre, detalle, categoria },
+      });
     } catch (err: any) {
       console.error("AI info-producto error:", err.message);
       res.status(500).json({ message: "Error IA: " + err.message });
@@ -89,9 +97,10 @@ Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instr
     if (!query) return res.status(400).json({ message: "query requerido" });
 
     try {
-      const stock = await getStock();
+      const stock: any[] = await getStock();
+
       const todos = stock
-        .filter((p: any) => p.ID && p.Nombre)
+        .filter((p: any) => p?.ID && p?.Nombre)
         .map((p: any) => ({
           id: p.ID,
           nombre: p.Nombre,
@@ -100,19 +109,21 @@ Si es un producto general (jabón, hisopos, etc.) adapta la respuesta para instr
           precioUnidad: parseNum(p["Precio unidad"]),
         }));
 
-      const q = query.toLowerCase();
+      const q = String(query).toLowerCase();
       const palabras = q.split(/\s+/).filter(Boolean);
+
       const preFiltered = todos.filter((p: any) => {
         const haystack = `${p.nombre} ${p.detalle} ${p.categoria}`.toLowerCase();
         return palabras.some((w: string) => haystack.includes(w));
       });
 
-      const candidatos = preFiltered.length > 0
-        ? preFiltered.slice(0, 60)
-        : todos.slice(0, 40);
+      const candidatos = preFiltered.length > 0 ? preFiltered.slice(0, 60) : todos.slice(0, 40);
 
       const catalogoTexto = candidatos
-        .map((p: any) => `ID:${p.id} | ${p.nombre} ${p.detalle} | Cat: ${p.categoria} | Precio: Q${p.precioUnidad}`)
+        .map(
+          (p: any) =>
+            `ID:${p.id} | ${p.nombre} ${p.detalle} | Cat: ${p.categoria} | Precio: Q${p.precioUnidad}`,
+        )
         .join("\n");
 
       const completion = await getGroq().chat.completions.create({
@@ -129,12 +140,12 @@ Responde SOLO con JSON válido en este formato exacto, sin markdown:
   ],
   "sugerencia": "Texto breve con consejo o aclaración si aplica"
 }
-Máximo 6 resultados. Si no hay coincidencias claras, devuelve los más cercanos.`
+Máximo 6 resultados. Si no hay coincidencias claras, devuelve los más cercanos.`,
           },
           {
             role: "user",
-            content: `Catálogo disponible:\n${catalogoTexto}\n\nBúsqueda del cliente: "${query}"`
-          }
+            content: `Catálogo disponible:\n${catalogoTexto}\n\nBúsqueda del cliente: "${query}"`,
+          },
         ],
         max_tokens: 1000,
       });
@@ -151,12 +162,15 @@ Máximo 6 resultados. Si no hay coincidencias claras, devuelve los más cercanos
   // POST /api/ai/recomendar - Recomendaciones complementarias o alternativas
   app.post("/api/ai/recomendar", async (req, res) => {
     const { productoId, nombre } = req.body;
-    if (!productoId && !nombre) return res.status(400).json({ message: "productoId o nombre requerido" });
+    if (!productoId && !nombre) {
+      return res.status(400).json({ message: "productoId o nombre requerido" });
+    }
 
     try {
-      const stock = await getStock();
+      const stock: any[] = await getStock();
+
       const productos = stock
-        .filter((p: any) => p.ID && p.Nombre)
+        .filter((p: any) => p?.ID && p?.Nombre)
         .map((p: any) => ({
           id: p.ID,
           nombre: p.Nombre,
@@ -165,7 +179,11 @@ Máximo 6 resultados. Si no hay coincidencias claras, devuelve los más cercanos
           precioUnidad: parseNum(p["Precio unidad"]),
         }));
 
-      const productoBase = productos.find((p: any) => p.id === productoId || p.nombre.toLowerCase() === (nombre || "").toLowerCase());
+      const productoBase = productos.find(
+        (p: any) =>
+          p.id === productoId || p.nombre.toLowerCase() === String(nombre || "").toLowerCase(),
+      );
+
       const catalogoTexto = productos
         .map((p: any) => `ID:${p.id} | ${p.nombre} ${p.detalle} | Cat: ${p.categoria} | Q${p.precioUnidad}`)
         .join("\n");
@@ -188,12 +206,16 @@ Responde SOLO con JSON válido sin markdown:
   ],
   "nota": "Nota médica breve si aplica"
 }
-Máximo 3 de cada tipo.`
+Máximo 3 de cada tipo.`,
           },
           {
             role: "user",
-            content: `Producto seleccionado: ${productoBase ? `${productoBase.nombre} ${productoBase.detalle} (Cat: ${productoBase.categoria})` : nombre || productoId}\n\nCatálogo disponible:\n${catalogoTexto}`
-          }
+            content: `Producto seleccionado: ${
+              productoBase
+                ? `${productoBase.nombre} ${productoBase.detalle} (Cat: ${productoBase.categoria})`
+                : nombre || productoId
+            }\n\nCatálogo disponible:\n${catalogoTexto}`,
+          },
         ],
         max_tokens: 800,
       });
@@ -213,19 +235,24 @@ Máximo 3 de cada tipo.`
     if (!productoId) return res.status(400).json({ message: "productoId requerido" });
 
     try {
-      const [stock, movimientos] = await Promise.all([getStock(), getMovimientos()]);
+      const [stockRaw, movimientosRaw] = await Promise.all([getStock(), getMovimientos()]);
 
-      const producto = stock.find((p: any) => p.ID === productoId);
+      const stock: any[] = Array.isArray(stockRaw) ? stockRaw : [];
+      const movimientos: any[] = Array.isArray(movimientosRaw) ? movimientosRaw : [];
+
+      const producto: any = stock.find((p: any) => p?.ID === productoId);
       if (!producto) return res.status(404).json({ message: "Producto no encontrado" });
 
-      const stockActual = parseInt(producto.Stock) || 0;
-      const nombre = producto.Nombre;
+      const stockActual = parseInt(String(producto.Stock ?? "0"), 10) || 0;
+      const nombre = String(producto.Nombre || "");
       const precioUnidad = parseNum(producto["Precio unidad"]);
       const precioCompra = parseNum(producto["Precio compra"]);
 
-      const ventasRelacionadas = movimientos.filter((m: any) =>
-        m.Concepto && m.Concepto.toLowerCase().includes(nombre.toLowerCase().split(" ")[0])
-      );
+      const ventasRelacionadas = movimientos.filter((m: any) => {
+        const concepto = String(m?.Concepto || "").toLowerCase();
+        const palabraBase = nombre.toLowerCase().split(" ")[0] || "";
+        return palabraBase ? concepto.includes(palabraBase) : false;
+      });
 
       const completion = await getGroq().chat.completions.create({
         model: "llama-3.3-70b-versatile",
@@ -246,7 +273,7 @@ Responde SOLO con JSON válido sin markdown:
   "margenUtilidad": "15%",
   "puntoPedido": 20
 }
-Niveles posibles: "critico" (< 7 días), "bajo" (7-14 días), "ok" (15-30 días), "alto" (> 30 días)`
+Niveles posibles: "critico" (< 7 días), "bajo" (7-14 días), "ok" (15-30 días), "alto" (> 30 días)`,
           },
           {
             role: "user",
@@ -257,17 +284,31 @@ Precio de compra: Q${precioCompra}
 Precio de venta unidad: Q${precioUnidad}
 Droguería: ${producto.Drogueria || "N/A"}
 Historial de movimientos relacionados: ${ventasRelacionadas.length} registros encontrados
-${ventasRelacionadas.length > 0 ? ventasRelacionadas.slice(0, 5).map((m: any) => `- ${m.Fecha}: ${m.Concepto} Q${m.Monto}`).join("\n") : "Sin historial de ventas registrado"}`
-          }
+${
+  ventasRelacionadas.length > 0
+    ? ventasRelacionadas
+        .slice(0, 5)
+        .map((m: any) => `- ${m.Fecha}: ${m.Concepto} Q${m.Monto}`)
+        .join("\n")
+    : "Sin historial de ventas registrado"
+}`,
+          },
         ],
         max_tokens: 500,
       });
 
       const content = completion.choices[0]?.message?.content || "{}";
       const parsed = extractJson(content);
+
       res.json({
         ...parsed,
-        producto: { id: productoId, nombre, stockActual, precioUnidad, precioCompra },
+        producto: {
+          id: productoId,
+          nombre,
+          stockActual,
+          precioUnidad,
+          precioCompra,
+        },
       });
     } catch (err: any) {
       console.error("AI duracion error:", err.message);
