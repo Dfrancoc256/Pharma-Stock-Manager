@@ -4,6 +4,7 @@ import {
   getVentas,
   getMovimientos,
   getFiadores,
+  getDetalleVenta,
   createVentaSheet,
   createMovimientoSheet,
 } from "./googleSheets";
@@ -18,7 +19,11 @@ export function registerSheetsRoutes(app: Express) {
       const toNumber = (value: unknown): number => {
         if (typeof value === "number") return Number.isFinite(value) ? value : 0;
         if (typeof value === "string") {
-          const cleaned = value.trim().replace(/\s/g, "").replace(",", ".");
+          const cleaned = value
+            .trim()
+            .replace(/\s/g, "")
+            .replace(/,/g, "")
+            .replace(/Q/gi, "");
           const n = Number(cleaned);
           return Number.isFinite(n) ? n : 0;
         }
@@ -56,20 +61,62 @@ export function registerSheetsRoutes(app: Express) {
 
       const cajaNeta = ingresos - egresos;
 
-      const ventasHoy = safeVentas.filter((v) => {
-        const fecha = String(v?.Fecha ?? "");
-        const hoy = new Date();
-        const yyyy = hoy.getFullYear();
-        const mm = String(hoy.getMonth() + 1).padStart(2, "0");
-        const dd = String(hoy.getDate()).padStart(2, "0");
-        return fecha.includes(`${yyyy}-${mm}-${dd}`) || fecha.includes(`${dd}/${mm}/${yyyy}`);
-      });
+      const normalizeDateKey = (fechaRaw: unknown): string => {
+        const fecha = String(fechaRaw ?? "").trim();
+        if (!fecha) return "";
+
+        const isoMatch = fecha.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+
+        const latamMatch = fecha.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+        if (latamMatch) return `${latamMatch[3]}-${latamMatch[2]}-${latamMatch[1]}`;
+
+        const d = new Date(fecha);
+        if (!isNaN(d.getTime())) {
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0");
+          return `${yyyy}-${mm}-${dd}`;
+        }
+
+        return "";
+      };
+
+      const today = new Date();
+      const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
+        today.getDate()
+      ).padStart(2, "0")}`;
+
+      const ventasHoyBase = safeVentas.filter((v) => normalizeDateKey(v?.Fecha) === todayKey);
+
+      const ventasHoy = await Promise.all(
+        ventasHoyBase.map(async (v) => {
+          const idVenta = String(v?.ID_Venta ?? "");
+          const detalle = idVenta ? await getDetalleVenta(idVenta) : [];
+
+          return {
+            id: idVenta,
+            fecha: String(v?.Fecha ?? ""),
+            usuario: String(v?.Usuario ?? ""),
+            cliente: String(v?.Cliente ?? ""),
+            tipo: String(v?.Tipo ?? ""),
+            metodoPago: String(v?.MetodoPago ?? ""),
+            total: String(v?.Total ?? "0"),
+            items: Array.isArray(detalle)
+              ? detalle.map((d) => ({
+                  nombre: String(d?.Nombre ?? ""),
+                  cantidad: String(d?.Cantidad ?? "0"),
+                  subtotal: String(d?.Subtotal ?? "0"),
+                }))
+              : [],
+          };
+        })
+      );
 
       const ventasPorDiaMap = new Map<string, { fecha: string; ingresos: number; egresos: number }>();
 
       safeVentas.forEach((v) => {
-        const fechaRaw = String(v?.Fecha ?? "");
-        const key = fechaRaw.slice(0, 10) || "Sin fecha";
+        const key = normalizeDateKey(v?.Fecha) || "Sin fecha";
 
         if (!ventasPorDiaMap.has(key)) {
           ventasPorDiaMap.set(key, { fecha: key, ingresos: 0, egresos: 0 });
@@ -79,8 +126,7 @@ export function registerSheetsRoutes(app: Express) {
       });
 
       safeMovimientos.forEach((m) => {
-        const fechaRaw = String(m?.Fecha ?? "");
-        const key = fechaRaw.slice(0, 10) || "Sin fecha";
+        const key = normalizeDateKey(m?.Fecha) || "Sin fecha";
         const tipo = String(m?.Tipo ?? "").toLowerCase();
 
         if (!ventasPorDiaMap.has(key)) {
@@ -99,8 +145,10 @@ export function registerSheetsRoutes(app: Express) {
       const ventasPorMesMap = new Map<string, { label: string; ingresos: number; order: number }>();
 
       safeVentas.forEach((v) => {
-        const fechaRaw = String(v?.Fecha ?? "");
-        const d = new Date(fechaRaw);
+        const key = normalizeDateKey(v?.Fecha);
+        if (!key) return;
+
+        const d = new Date(`${key}T00:00:00`);
         if (isNaN(d.getTime())) return;
 
         const label = d.toLocaleDateString("es-GT", { month: "short", year: "2-digit" });
@@ -126,7 +174,34 @@ export function registerSheetsRoutes(app: Express) {
         .sort((a, b) => b.cantidad - a.cantidad)
         .slice(0, 8);
 
-      const topProductos: { id: string; nombre: string; total: number; cantidad: number }[] = [];
+      const topProductosMap = new Map<string, { id: string; nombre: string; total: number; cantidad: number }>();
+
+      for (const venta of safeVentas) {
+        const idVenta = String(venta?.ID_Venta ?? "");
+        if (!idVenta) continue;
+
+        const detalle = await getDetalleVenta(idVenta);
+        if (!Array.isArray(detalle)) continue;
+
+        detalle.forEach((d) => {
+          const id = String(d?.Producto_ID ?? "");
+          const nombre = String(d?.Nombre ?? "Producto");
+          const cantidad = toNumber(d?.Cantidad);
+          const subtotal = toNumber(d?.Subtotal);
+
+          if (!topProductosMap.has(id)) {
+            topProductosMap.set(id, { id, nombre, total: 0, cantidad: 0 });
+          }
+
+          const actual = topProductosMap.get(id)!;
+          actual.total += subtotal;
+          actual.cantidad += cantidad;
+        });
+      }
+
+      const topProductos = Array.from(topProductosMap.values())
+        .sort((a, b) => b.cantidad - a.cantidad)
+        .slice(0, 8);
 
       res.json({
         ok: true,
@@ -156,6 +231,7 @@ export function registerSheetsRoutes(app: Express) {
       const data = await getStock();
       res.json({ ok: true, data });
     } catch (error) {
+      console.error("stock error:", error);
       res.status(500).json({ ok: false });
     }
   });
@@ -165,34 +241,23 @@ export function registerSheetsRoutes(app: Express) {
       const data = await getVentas();
       res.json({ ok: true, data });
     } catch (error) {
+      console.error("ventas error:", error);
       res.status(500).json({ ok: false });
     }
   });
 
   app.post("/api/sheets/ventas", async (req, res) => {
     try {
-      const {
-        fecha,
-        usuario,
-        cliente,
-        tipo,
-        fiadorId,
-        metodoPago,
-        total,
-        items,
-      } = req.body;
+      const { fecha, usuario, cliente, tipo, fiadorId, metodoPago, total, items } = req.body;
 
-      if (!cliente || !tipo || !metodoPago || !total || !Array.isArray(items) || items.length === 0) {
+      if (!cliente || !tipo || !metodoPago || total === undefined || total === null || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({
           ok: false,
           message: "Datos incompletos para registrar la venta",
         });
       }
 
-      const fechaFinal =
-        fecha ||
-        new Date().toISOString().slice(0, 19).replace("T", " ");
-
+      const fechaFinal = fecha || new Date().toISOString().slice(0, 19).replace("T", " ");
       const usuarioFinal = usuario || "admin";
 
       const result = await createVentaSheet({
@@ -242,6 +307,7 @@ export function registerSheetsRoutes(app: Express) {
       const data = await getMovimientos();
       res.json({ ok: true, data });
     } catch (error) {
+      console.error("movimientos error:", error);
       res.status(500).json({ ok: false });
     }
   });
@@ -284,6 +350,7 @@ export function registerSheetsRoutes(app: Express) {
       const data = await getFiadores();
       res.json({ ok: true, data });
     } catch (error) {
+      console.error("fiadores error:", error);
       res.status(500).json({ ok: false });
     }
   });
