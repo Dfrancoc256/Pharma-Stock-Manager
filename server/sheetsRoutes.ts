@@ -460,6 +460,150 @@ export function registerSheetsRoutes(app: Express) {
     }
   });
 
+  app.get("/api/sheets/balances", async (req, res) => {
+    try {
+      const ventas = await getVentas();
+      const movimientos = await getMovimientos();
+
+      const safeVentas = Array.isArray(ventas) ? ventas : [];
+      const safeMovimientos = Array.isArray(movimientos) ? movimientos : [];
+
+      const desde = String(req.query.desde ?? "").trim();
+      const hasta = String(req.query.hasta ?? "").trim();
+
+      const toNumber = (value: unknown): number => {
+        if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+        if (typeof value === "string") {
+          const cleaned = value.trim().replace(/\s/g, "").replace(/,/g, "").replace(/Q/gi, "");
+          const n = Number(cleaned);
+          return Number.isFinite(n) ? n : 0;
+        }
+        return 0;
+      };
+
+      const normalizeDateKey = (fechaRaw: unknown): string => {
+        const fecha = String(fechaRaw ?? "").trim();
+        if (!fecha) return "";
+
+        const isoMatch = fecha.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+
+        const latamMatch = fecha.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+        if (latamMatch) return `${latamMatch[3]}-${latamMatch[2]}-${latamMatch[1]}`;
+
+        const d = new Date(fecha);
+        if (!isNaN(d.getTime())) {
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0");
+          return `${yyyy}-${mm}-${dd}`;
+        }
+
+        return "";
+      };
+
+      const inRange = (fechaRaw: unknown): boolean => {
+        const key = normalizeDateKey(fechaRaw);
+        if (!key) return !desde && !hasta;
+        if (desde && key < desde) return false;
+        if (hasta && key > hasta) return false;
+        return true;
+      };
+
+      const ventasMap = new Map<
+        string,
+        {
+          cliente: string;
+          metodoPago: string;
+          tipo: string;
+          total: string;
+        }
+      >();
+
+      safeVentas.forEach((v) => {
+        const idVenta = String(v?.ID_Venta ?? "").trim();
+        if (!idVenta) return;
+
+        ventasMap.set(idVenta, {
+          cliente: String(v?.Cliente ?? ""),
+          metodoPago: String(v?.MetodoPago ?? ""),
+          tipo: String(v?.Tipo ?? ""),
+          total: String(v?.Total ?? "0"),
+        });
+      });
+
+      const movimientosEnriquecidos = await Promise.all(
+        safeMovimientos
+          .filter((m) => inRange(m?.Fecha))
+          .map(async (m) => {
+            const referencia = String(m?.Referencia ?? "").trim();
+            const venta = referencia && ventasMap.has(referencia) ? ventasMap.get(referencia)! : null;
+            const detalle = venta ? await getDetalleVenta(referencia) : [];
+
+            return {
+              id: String(m?.ID_Movimiento ?? ""),
+              fecha: String(m?.Fecha ?? ""),
+              tipo: String(m?.Tipo ?? "").toLowerCase(),
+              concepto: String(m?.Concepto ?? ""),
+              monto: String(m?.Monto ?? "0"),
+              usuario: String(m?.Usuario ?? ""),
+              referencia,
+              items: Array.isArray(detalle)
+                ? detalle.map((d) => ({
+                    nombre: String(d?.Nombre ?? ""),
+                    cantidad: String(d?.Cantidad ?? "0"),
+                    precioUnitario: String(d?.PrecioUnitario ?? "0"),
+                    subtotal: String(d?.Subtotal ?? "0"),
+                    tipoPrecio: String(d?.TipoPrecio ?? ""),
+                  }))
+                : [],
+              venta,
+            };
+          })
+      );
+
+      const ingresos = movimientosEnriquecidos
+        .filter((m) => {
+          const tipo = String(m.tipo).toLowerCase();
+          return tipo.includes("ingreso") || tipo.includes("entrada");
+        })
+        .reduce((acc, m) => acc + toNumber(m.monto), 0);
+
+      const egresos = movimientosEnriquecidos
+        .filter((m) => {
+          const tipo = String(m.tipo).toLowerCase();
+          return tipo.includes("egreso") || tipo.includes("salida") || tipo.includes("gasto");
+        })
+        .reduce((acc, m) => acc + toNumber(m.monto), 0);
+
+      const cajaNeta = ingresos - egresos;
+
+      const movimientosOrdenados = movimientosEnriquecidos.sort((a, b) => {
+        const fa = new Date(a.fecha).getTime();
+        const fb = new Date(b.fecha).getTime();
+
+        if (!isNaN(fa) && !isNaN(fb)) return fb - fa;
+        return String(b.fecha).localeCompare(String(a.fecha));
+      });
+
+      res.json({
+        ok: true,
+        data: {
+          ingresos: ingresos.toFixed(2),
+          egresos: egresos.toFixed(2),
+          cajaNeta: cajaNeta.toFixed(2),
+          movimientos: movimientosOrdenados,
+        },
+      });
+    } catch (error) {
+      console.error("balances error:", error);
+      res.status(500).json({
+        ok: false,
+        message: "Error al cargar balances",
+      });
+    }
+  });
+
   app.get("/api/sheets/fiadores", async (req, res) => {
     try {
       const data = await getFiadores();

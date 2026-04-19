@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import { PageHeader } from "@/components/PageHeader";
@@ -56,27 +56,45 @@ function todayISO() {
   return gt.toISOString().slice(0, 10);
 }
 
+function toMoney(value: string | number | null | undefined) {
+  const num = Number(value ?? 0);
+  return Number.isFinite(num)
+    ? num.toLocaleString("es-GT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "0.00";
+}
+
+function toSafeNumber(value: string | number | null | undefined) {
+  const num = Number(value ?? 0);
+  return Number.isFinite(num) ? num : 0;
+}
+
 export default function BalancesPage() {
   const queryClient = useQueryClient();
-  const [desde, setDesde] = useState(todayISO);
-  const [hasta, setHasta] = useState(todayISO);
+  const [desde, setDesde] = useState(todayISO());
+  const [hasta, setHasta] = useState(todayISO());
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [tipo, setTipo] = useState<"ingreso" | "egreso">("egreso");
   const [concepto, setConcepto] = useState("");
   const [monto, setMonto] = useState("");
   const [selectedMov, setSelectedMov] = useState<Movimiento | null>(null);
 
-  const params = new URLSearchParams();
-  if (desde) params.set("desde", desde);
-  if (hasta) params.set("hasta", hasta);
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams();
+    if (desde) params.set("desde", desde);
+    if (hasta) params.set("hasta", hasta);
+    return params.toString();
+  }, [desde, hasta]);
 
   const { data, isLoading } = useQuery<BalancesData>({
     queryKey: ["/api/sheets/balances", desde, hasta],
     queryFn: async () => {
-      const res = await fetch(`/api/sheets/balances?${params.toString()}`, {
+      const res = await fetch(`/api/sheets/balances?${queryString}`, {
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Error cargando balances");
+
+      if (!res.ok) {
+        throw new Error("Error cargando balances");
+      }
 
       const json = await res.json();
 
@@ -115,11 +133,15 @@ export default function BalancesPage() {
         body: JSON.stringify(body),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Error al registrar movimiento");
+
+      if (!res.ok) {
+        throw new Error("Error al registrar movimiento");
+      }
+
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sheets/balances"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/sheets/balances"] });
       setIsAddOpen(false);
       setConcepto("");
       setMonto("");
@@ -147,7 +169,7 @@ export default function BalancesPage() {
         }
       />
 
-      <div className="flex gap-4 mb-6 glass-card rounded-2xl p-4">
+      <div className="flex gap-4 mb-6 glass-card rounded-2xl p-4 flex-wrap">
         <Filter size={18} className="text-muted-foreground self-center" />
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-muted-foreground">Desde</label>
@@ -159,6 +181,7 @@ export default function BalancesPage() {
             data-testid="input-desde"
           />
         </div>
+
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-muted-foreground">Hasta</label>
           <input
@@ -169,6 +192,7 @@ export default function BalancesPage() {
             data-testid="input-hasta"
           />
         </div>
+
         <button
           onClick={() => {
             setDesde(todayISO());
@@ -178,6 +202,7 @@ export default function BalancesPage() {
         >
           Hoy
         </button>
+
         {(desde !== todayISO() || hasta !== todayISO()) && (
           <button
             onClick={() => {
@@ -192,14 +217,14 @@ export default function BalancesPage() {
       </div>
 
       {data && (
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="glass-card rounded-3xl p-6">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp size={18} className="text-green-600" />
               <span className="text-sm text-muted-foreground font-medium">Ingresos</span>
             </div>
             <div className="text-3xl font-black text-green-600">
-              Q {Number(data?.ingresos ?? 0).toLocaleString("es-GT", { minimumFractionDigits: 2 })}
+              Q {toMoney(data.ingresos)}
             </div>
           </div>
 
@@ -209,7 +234,7 @@ export default function BalancesPage() {
               <span className="text-sm text-muted-foreground font-medium">Egresos</span>
             </div>
             <div className="text-3xl font-black text-red-500">
-              Q {Number(data?.egresos ?? 0).toLocaleString("es-GT", { minimumFractionDigits: 2 })}
+              Q {toMoney(data.egresos)}
             </div>
           </div>
 
@@ -217,16 +242,16 @@ export default function BalancesPage() {
             <div className="flex items-center gap-2 mb-2">
               <DollarSign
                 size={18}
-                className={Number(data?.cajaNeta ?? 0) >= 0 ? "text-primary" : "text-red-500"}
+                className={toSafeNumber(data.cajaNeta) >= 0 ? "text-primary" : "text-red-500"}
               />
               <span className="text-sm text-muted-foreground font-medium">Caja Neta</span>
             </div>
             <div
               className={`text-3xl font-black ${
-                Number(data?.cajaNeta ?? 0) >= 0 ? "text-primary" : "text-red-500"
+                toSafeNumber(data.cajaNeta) >= 0 ? "text-primary" : "text-red-500"
               }`}
             >
-              Q {Number(data?.cajaNeta ?? 0).toLocaleString("es-GT", { minimumFractionDigits: 2 })}
+              Q {toMoney(data.cajaNeta)}
             </div>
           </div>
         </div>
@@ -257,46 +282,43 @@ export default function BalancesPage() {
                 </td>
               </tr>
             ) : (
-              data.movimientos
-                .slice()
-                .reverse()
-                .map((m, i) => (
-                  <tr
-                    key={i}
-                    className="border-b border-border/30 hover:bg-primary/5 transition-colors cursor-pointer"
-                    onClick={() => setSelectedMov(m)}
-                    data-testid={`row-movimiento-${i}`}
-                  >
-                    <td className="p-4 text-sm text-muted-foreground">{m.fecha}</td>
-                    <td className="p-4">
-                      <span
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                          m.tipo === "ingreso"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-600"
-                        }`}
-                      >
-                        {m.tipo}
-                      </span>
-                    </td>
-                    <td className="p-4 font-medium">
-                      <span>{m.concepto}</span>
-                      {m.items?.length > 0 && (
-                        <span className="ml-2 text-xs text-muted-foreground font-normal">
-                          · {m.items.length} producto{m.items.length !== 1 ? "s" : ""}
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-4 text-sm text-muted-foreground">{m.usuario}</td>
-                    <td
-                      className={`p-4 font-extrabold text-right ${
-                        m.tipo === "ingreso" ? "text-green-600" : "text-red-500"
+              data.movimientos.map((m, i) => (
+                <tr
+                  key={`${m.id}-${i}`}
+                  className="border-b border-border/30 hover:bg-primary/5 transition-colors cursor-pointer"
+                  onClick={() => setSelectedMov(m)}
+                  data-testid={`row-movimiento-${i}`}
+                >
+                  <td className="p-4 text-sm text-muted-foreground">{m.fecha}</td>
+                  <td className="p-4">
+                    <span
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                        m.tipo === "ingreso"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-600"
                       }`}
                     >
-                      {m.tipo === "egreso" ? "-" : "+"}Q {parseFloat(m.monto).toFixed(2)}
-                    </td>
-                  </tr>
-                ))
+                      {m.tipo}
+                    </span>
+                  </td>
+                  <td className="p-4 font-medium">
+                    <span>{m.concepto}</span>
+                    {m.items?.length > 0 && (
+                      <span className="ml-2 text-xs text-muted-foreground font-normal">
+                        · {m.items.length} producto{m.items.length !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-4 text-sm text-muted-foreground">{m.usuario}</td>
+                  <td
+                    className={`p-4 font-extrabold text-right ${
+                      m.tipo === "ingreso" ? "text-green-600" : "text-red-500"
+                    }`}
+                  >
+                    {m.tipo === "egreso" ? "-" : "+"}Q {toMoney(m.monto)}
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
@@ -336,6 +358,7 @@ export default function BalancesPage() {
                   </span>
                 </div>
               </div>
+
               <button
                 onClick={() => setSelectedMov(null)}
                 className="p-2 rounded-xl hover:bg-black/5"
@@ -353,7 +376,7 @@ export default function BalancesPage() {
                     selectedMov.tipo === "ingreso" ? "text-green-600" : "text-red-500"
                   }`}
                 >
-                  {selectedMov.tipo === "egreso" ? "-" : "+"}Q {parseFloat(selectedMov.monto).toFixed(2)}
+                  {selectedMov.tipo === "egreso" ? "-" : "+"}Q {toMoney(selectedMov.monto)}
                 </p>
               </div>
 
@@ -361,6 +384,7 @@ export default function BalancesPage() {
                 <InfoRow icon={<Receipt size={15} />} label="Concepto" value={selectedMov.concepto} />
                 <InfoRow icon={<Calendar size={15} />} label="Fecha" value={selectedMov.fecha} />
                 <InfoRow icon={<User size={15} />} label="Usuario" value={selectedMov.usuario || "—"} />
+
                 {selectedMov.referencia && (
                   <InfoRow
                     icon={<Hash size={15} />}
@@ -372,9 +396,11 @@ export default function BalancesPage() {
                     }
                   />
                 )}
+
                 {selectedMov.venta?.cliente && (
                   <InfoRow icon={<User size={15} />} label="Cliente" value={selectedMov.venta.cliente} />
                 )}
+
                 {selectedMov.venta?.metodoPago && (
                   <InfoRow
                     icon={<DollarSign size={15} />}
@@ -382,6 +408,7 @@ export default function BalancesPage() {
                     value={selectedMov.venta.metodoPago}
                   />
                 )}
+
                 {selectedMov.venta?.tipo && (
                   <InfoRow icon={<Receipt size={15} />} label="Tipo venta" value={selectedMov.venta.tipo} />
                 )}
@@ -394,6 +421,7 @@ export default function BalancesPage() {
                     <p className="text-sm font-bold">Productos vendidos</p>
                     <span className="text-xs text-muted-foreground">({selectedMov.items.length})</span>
                   </div>
+
                   <div className="rounded-2xl border border-border/40 overflow-hidden">
                     <table className="w-full text-sm">
                       <thead className="bg-muted/50">
@@ -410,10 +438,10 @@ export default function BalancesPage() {
                             <td className="px-3 py-2 font-medium">{item.nombre}</td>
                             <td className="px-3 py-2 text-center text-muted-foreground">{item.cantidad}</td>
                             <td className="px-3 py-2 text-right text-muted-foreground">
-                              Q {parseFloat(item.precioUnitario || "0").toFixed(2)}
+                              Q {toMoney(item.precioUnitario)}
                             </td>
                             <td className="px-3 py-2 text-right font-bold">
-                              Q {parseFloat(item.subtotal || "0").toFixed(2)}
+                              Q {toMoney(item.subtotal)}
                             </td>
                           </tr>
                         ))}
@@ -424,7 +452,7 @@ export default function BalancesPage() {
                             Total
                           </td>
                           <td className="px-3 py-2 text-right font-black text-primary">
-                            Q {parseFloat(selectedMov.monto).toFixed(2)}
+                            Q {toMoney(selectedMov.monto)}
                           </td>
                         </tr>
                       </tfoot>
@@ -449,6 +477,7 @@ export default function BalancesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="glass-card rounded-3xl w-full max-w-sm p-8 animate-in zoom-in-95 duration-200">
             <h2 className="text-2xl font-bold mb-6">Nuevo Movimiento</h2>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold mb-2">Tipo</label>
@@ -465,6 +494,7 @@ export default function BalancesPage() {
                   >
                     Ingreso
                   </button>
+
                   <button
                     type="button"
                     onClick={() => setTipo("egreso")}
@@ -479,6 +509,7 @@ export default function BalancesPage() {
                   </button>
                 </div>
               </div>
+
               <div>
                 <label className="block text-sm font-semibold mb-1">Concepto</label>
                 <input
@@ -490,6 +521,7 @@ export default function BalancesPage() {
                   data-testid="input-concepto"
                 />
               </div>
+
               <div>
                 <label className="block text-sm font-semibold mb-1">Monto (Q)</label>
                 <input
@@ -504,6 +536,7 @@ export default function BalancesPage() {
                   data-testid="input-monto-movimiento"
                 />
               </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -512,6 +545,7 @@ export default function BalancesPage() {
                 >
                   Cancelar
                 </button>
+
                 <button
                   type="submit"
                   disabled={createMov.isPending}
