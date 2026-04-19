@@ -6,18 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="d04f7485-3ba2-4a00-b0e5-f7f6a4c63c2d" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/pages/fiadores.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/pages/fiadores.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/hooks/use-users.ts" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/hooks/use-users.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dist/index.cjs" beforeDir="false" afterPath="$PROJECT_DIR$/dist/index.cjs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/public/assets/dashboard-DgGxeWG4.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/public/assets/html2canvas.esm-DXEQVQnt.js" beforeDir="false" afterPath="$PROJECT_DIR$/dist/public/assets/html2canvas.esm-DXEQVQnt.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/public/assets/index-BzkiDRub.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/public/assets/index-CWvB3Hzo.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/public/assets/index.es-BTaEw1OQ.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/public/assets/jspdf.es.min-Bi4LeEW0.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/public/assets/purify.es-CovBOfck.js" beforeDir="false" afterPath="$PROJECT_DIR$/dist/public/assets/purify.es-CovBOfck.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/public/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/dist/public/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server/aiRoutes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/aiRoutes.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -122,7 +112,7 @@
       <workItem from="1776391319821" duration="4253000" />
       <workItem from="1776433264846" duration="562000" />
       <workItem from="1776556784938" duration="4172000" />
-      <workItem from="1776569721416" duration="9279000" />
+      <workItem from="1776569721416" duration="11425000" />
     </task>
     <servers />
   </component>

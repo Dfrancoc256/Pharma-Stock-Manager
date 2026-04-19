@@ -7,13 +7,23 @@ export interface SheetUsuario {
   Activo: string;
 }
 
+function safeArray<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === "object" && Array.isArray((value as any).data)) {
+    return (value as any).data;
+  }
+  return [];
+}
+
 export function useUsers() {
   return useQuery<SheetUsuario[]>({
     queryKey: ["/api/sheets/usuarios"],
     queryFn: async () => {
       const res = await fetch("/api/sheets/usuarios", { credentials: "include" });
       if (!res.ok) throw new Error("Error cargando usuarios");
-      return res.json();
+
+      const json = await res.json();
+      return safeArray<SheetUsuario>(json);
     },
   });
 }
