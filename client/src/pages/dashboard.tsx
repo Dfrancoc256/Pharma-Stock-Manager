@@ -189,9 +189,15 @@ export default function DashboardPage() {
   const caja = toNumber(data?.cajaNeta);
 
   const ventasPorDia = asArray<VentaPorDia>(data?.ventasPorDia);
-  const hoy = ventasPorDia.length > 0 ? ventasPorDia[ventasPorDia.length - 1] : undefined;
-  const ingresosHoy = toNumber(hoy?.ingresos);
-  const egresosHoy = toNumber(hoy?.egresos);
+  const ventasHoy = asArray<VentaHoy>(data?.ventasHoy);
+
+  const ingresosHoy = ventasHoy.reduce((acc, v) => acc + toNumber(v?.total), 0);
+
+  const hoyKey = new Date().toISOString().slice(0, 10);
+  const egresosHoy = ventasPorDia
+    .filter((d) => String(d?.fecha || "").startsWith(hoyKey))
+    .reduce((acc, d) => acc + toNumber(d?.egresos), 0);
+
   const cajaHoy = ingresosHoy - egresosHoy;
 
   const fechaHoy = new Date().toLocaleDateString("es-GT", {
@@ -207,8 +213,6 @@ export default function DashboardPage() {
   }));
 
   const maxIngreso = mesData.length > 0 ? Math.max(...mesData.map((m) => m.ingresos)) : 0;
-
-  const ventasHoy = asArray<VentaHoy>(data?.ventasHoy);
   const topCategorias = asArray<TopCategoria>(data?.topCategorias);
   const topProductos = asArray<TopProducto>(data?.topProductos);
 
@@ -335,7 +339,7 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {ingresosHoy === 0 && egresosHoy === 0 ? (
+            {ventasHoy.length === 0 && ingresosHoy === 0 && egresosHoy === 0 ? (
               <div className="flex flex-col items-center justify-center h-28 text-muted-foreground">
                 <ShoppingCart size={36} className="opacity-20 mb-2" />
                 <p className="text-sm">Aún no hay ventas registradas hoy</p>
@@ -402,9 +406,7 @@ export default function DashboardPage() {
                             {v.fecha?.split(" ")[1] ?? ""}
                           </span>
                           <p className="text-sm font-semibold truncate">
-                            {v.cliente && v.cliente !== "Contado"
-                              ? v.cliente
-                              : "Cliente general"}
+                            {v.cliente && v.cliente.trim() !== "" ? v.cliente : "Cliente general"}
                           </p>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
