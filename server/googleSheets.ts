@@ -154,7 +154,6 @@ export async function createProductoSheet(prod: {
   stock: number;
   unidadesBlister?: number;
   unidadesCaja?: number;
-  barcode?: string;
 }) {
   const rows = await leerHoja("Stock");
   const lastId = rows.length > 1 ? parseInt(rows[rows.length - 1][0]) || 0 : 0;
@@ -177,7 +176,55 @@ export async function createProductoSheet(prod: {
     toInt(prod.unidadesCaja ?? 0),
   ]);
 
-  return { id: newId, nombre: prod.nombre, stock: toInt(prod.stock) };
+  return { id: String(newId), nombre: prod.nombre, stock: toInt(prod.stock) };
+}
+
+export async function updateProductoSheet(
+  id: string,
+  prod: {
+    nombre: string;
+    detalle?: string;
+    casa?: string;
+    categoria?: string;
+    precioCompra: number;
+    precioUnidad: number;
+    precioBlister?: number;
+    precioCaja?: number;
+    posicion?: string;
+    drogueria?: string;
+    stock: number;
+    unidadesBlister?: number;
+    unidadesCaja?: number;
+  }
+) {
+  const rows = await leerHoja("Stock");
+  if (!rows || rows.length < 2) {
+    throw new Error("La hoja Stock no tiene datos");
+  }
+
+  const rowIndex = rows.findIndex((row, i) => i > 0 && String(row[0] ?? "").trim() === String(id).trim());
+  if (rowIndex === -1) {
+    throw new Error("Producto no encontrado");
+  }
+
+  await updateRango(`Stock!A${rowIndex + 1}:N${rowIndex + 1}`, [[
+    id,
+    prod.nombre,
+    prod.detalle ?? "",
+    prod.casa ?? "",
+    prod.categoria ?? "",
+    toNumber(prod.precioCompra),
+    toNumber(prod.precioUnidad),
+    toNumber(prod.precioBlister ?? 0),
+    toNumber(prod.precioCaja ?? 0),
+    prod.posicion ?? "",
+    toInt(prod.stock),
+    prod.drogueria ?? "",
+    toInt(prod.unidadesBlister ?? 0),
+    toInt(prod.unidadesCaja ?? 0),
+  ]]);
+
+  return { id: String(id), nombre: prod.nombre, stock: toInt(prod.stock) };
 }
 
 export async function updateStockSheet(id: string, newStock: number) {
@@ -211,7 +258,7 @@ export async function deleteProductoSheet(id: string) {
     if (String(rows[i][0] ?? "").trim() === String(id).trim()) {
       const cols = rows[i].length;
       const emptyCols = Array(cols).fill("");
-      await updateRango(`Stock!A${i + 1}`, [emptyCols]);
+      await updateRango(`Stock!A${i + 1}:N${i + 1}`, [emptyCols]);
       return;
     }
   }

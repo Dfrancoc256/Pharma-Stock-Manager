@@ -7,6 +7,9 @@ import {
   getDetalleVenta,
   createVentaSheet,
   createMovimientoSheet,
+  createProductoSheet,
+  updateProductoSheet,
+  deleteProductoSheet,
 } from "./googleSheets";
 
 export function registerSheetsRoutes(app: Express) {
@@ -32,7 +35,6 @@ export function registerSheetsRoutes(app: Express) {
 
       const totalProductos = safeStock.filter((p) => p?.ID && p?.Nombre).length;
       const totalVentas = safeVentas.length;
-
       const existenciaTotal = safeStock.reduce((acc, p) => acc + toNumber(p?.Stock), 0);
 
       const bajosStock = safeStock.filter((p) => {
@@ -221,6 +223,123 @@ export function registerSheetsRoutes(app: Express) {
     } catch (error) {
       console.error("stock error:", error);
       res.status(500).json({ ok: false });
+    }
+  });
+
+  app.post("/api/sheets/stock", async (req, res) => {
+    try {
+      const {
+        nombre,
+        detalle,
+        casa,
+        categoria,
+        precioCompra,
+        precioUnidad,
+        precioBlister,
+        precioCaja,
+        posicion,
+        drogueria,
+        stock,
+        unidadesBlister,
+        unidadesCaja,
+      } = req.body;
+
+      if (!nombre || precioCompra === undefined || precioUnidad === undefined) {
+        return res.status(400).json({
+          ok: false,
+          message: "Datos incompletos para crear producto",
+        });
+      }
+
+      const result = await createProductoSheet({
+        nombre: String(nombre),
+        detalle: String(detalle || ""),
+        casa: String(casa || ""),
+        categoria: String(categoria || ""),
+        precioCompra: Number(precioCompra) || 0,
+        precioUnidad: Number(precioUnidad) || 0,
+        precioBlister: Number(precioBlister) || 0,
+        precioCaja: Number(precioCaja) || 0,
+        posicion: String(posicion || ""),
+        drogueria: String(drogueria || ""),
+        stock: Number(stock) || 0,
+        unidadesBlister: Number(unidadesBlister) || 0,
+        unidadesCaja: Number(unidadesCaja) || 0,
+      });
+
+      res.json({ ok: true, data: result });
+    } catch (error) {
+      console.error("Error creando producto:", error);
+      res.status(500).json({
+        ok: false,
+        message: "Error al crear producto",
+      });
+    }
+  });
+
+  app.put("/api/sheets/stock/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const {
+        nombre,
+        detalle,
+        casa,
+        categoria,
+        precioCompra,
+        precioUnidad,
+        precioBlister,
+        precioCaja,
+        posicion,
+        drogueria,
+        stock,
+        unidadesBlister,
+        unidadesCaja,
+      } = req.body;
+
+      if (!id || !nombre || precioCompra === undefined || precioUnidad === undefined) {
+        return res.status(400).json({
+          ok: false,
+          message: "Datos incompletos para actualizar producto",
+        });
+      }
+
+      const result = await updateProductoSheet(id, {
+        nombre: String(nombre),
+        detalle: String(detalle || ""),
+        casa: String(casa || ""),
+        categoria: String(categoria || ""),
+        precioCompra: Number(precioCompra) || 0,
+        precioUnidad: Number(precioUnidad) || 0,
+        precioBlister: Number(precioBlister) || 0,
+        precioCaja: Number(precioCaja) || 0,
+        posicion: String(posicion || ""),
+        drogueria: String(drogueria || ""),
+        stock: Number(stock) || 0,
+        unidadesBlister: Number(unidadesBlister) || 0,
+        unidadesCaja: Number(unidadesCaja) || 0,
+      });
+
+      res.json({ ok: true, data: result });
+    } catch (error) {
+      console.error("Error actualizando producto:", error);
+      res.status(500).json({
+        ok: false,
+        message: "Error al actualizar producto",
+      });
+    }
+  });
+
+  app.delete("/api/sheets/stock/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await deleteProductoSheet(String(id));
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Error eliminando producto:", error);
+      res.status(500).json({
+        ok: false,
+        message: "Error al eliminar producto",
+      });
     }
   });
 
