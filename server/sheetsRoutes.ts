@@ -4,6 +4,8 @@ import {
   getVentas,
   getMovimientos,
   getFiadores,
+  createVentaSheet,
+  createMovimientoSheet,
 } from "./googleSheets";
 
 export function registerSheetsRoutes(app: Express) {
@@ -167,12 +169,113 @@ export function registerSheetsRoutes(app: Express) {
     }
   });
 
+  app.post("/api/sheets/ventas", async (req, res) => {
+    try {
+      const {
+        fecha,
+        usuario,
+        cliente,
+        tipo,
+        fiadorId,
+        metodoPago,
+        total,
+        items,
+      } = req.body;
+
+      if (!cliente || !tipo || !metodoPago || !total || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({
+          ok: false,
+          message: "Datos incompletos para registrar la venta",
+        });
+      }
+
+      const fechaFinal =
+        fecha ||
+        new Date().toISOString().slice(0, 19).replace("T", " ");
+
+      const usuarioFinal = usuario || "admin";
+
+      const result = await createVentaSheet({
+        fecha: fechaFinal,
+        usuario: usuarioFinal,
+        cliente,
+        tipo,
+        fiadorId: fiadorId || "",
+        metodoPago,
+        total: Number(total) || 0,
+        items: items.map((item: any) => ({
+          productoId: String(item.productoId || ""),
+          nombre: String(item.nombre || ""),
+          tipoPrecio: String(item.tipoPrecio || "unidad"),
+          cantidad: Number(item.cantidad) || 0,
+          precioUnitario: Number(item.precioUnitario) || 0,
+          subtotal: Number(item.subtotal) || 0,
+          costoUnitario: Number(item.costoUnitario) || 0,
+          utilidad: Number(item.utilidad) || 0,
+        })),
+      });
+
+      await createMovimientoSheet({
+        fecha: fechaFinal,
+        tipo: "ingreso",
+        concepto: `Venta ${cliente}`,
+        monto: Number(total) || 0,
+        usuario: usuarioFinal,
+        referencia: String(result.id),
+      });
+
+      res.json({
+        ok: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error("Error creando venta:", error);
+      res.status(500).json({
+        ok: false,
+        message: "Error al registrar la venta",
+      });
+    }
+  });
+
   app.get("/api/sheets/movimientos", async (req, res) => {
     try {
       const data = await getMovimientos();
       res.json({ ok: true, data });
     } catch (error) {
       res.status(500).json({ ok: false });
+    }
+  });
+
+  app.post("/api/sheets/movimientos", async (req, res) => {
+    try {
+      const { tipo, concepto, monto, fecha, usuario, referencia } = req.body;
+
+      if (!tipo || !concepto || monto === undefined || monto === null || monto === "") {
+        return res.status(400).json({
+          ok: false,
+          message: "Datos incompletos para registrar movimiento",
+        });
+      }
+
+      const result = await createMovimientoSheet({
+        fecha: fecha || new Date().toISOString().slice(0, 19).replace("T", " "),
+        tipo: String(tipo),
+        concepto: String(concepto),
+        monto: Number(monto) || 0,
+        usuario: usuario || "admin",
+        referencia: referencia || "",
+      });
+
+      res.json({
+        ok: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error("Error creando movimiento:", error);
+      res.status(500).json({
+        ok: false,
+        message: "Error al registrar movimiento",
+      });
     }
   });
 
