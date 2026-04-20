@@ -420,6 +420,20 @@ export async function createMovimientoSheet(params: {
   return { id: newId, ...params, monto: toNumber(params.monto) };
 }
 
+export async function deleteMovimientoSheet(id: string) {
+  const rows = await leerHoja("Movimientos");
+
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0] ?? "").trim() === String(id).trim()) {
+      const emptyCols = Array(7).fill("");
+      await updateRango(`Movimientos!A${i + 1}:G${i + 1}`, [emptyCols]);
+      return { ok: true };
+    }
+  }
+
+  throw new Error("Movimiento no encontrado");
+}
+
 // ==================== PEDIDOS ====================
 
 export async function getPedidos() {

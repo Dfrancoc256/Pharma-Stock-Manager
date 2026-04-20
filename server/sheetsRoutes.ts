@@ -7,6 +7,7 @@ import {
   getDetalleVenta,
   createVentaSheet,
   createMovimientoSheet,
+  deleteMovimientoSheet,
   createProductoSheet,
   updateProductoSheet,
   deleteProductoSheet,
@@ -479,6 +480,45 @@ export function registerSheetsRoutes(app: Express) {
       });
     }
   });
+
+  app.delete("/api/sheets/movimientos/:id", async (req, res) => {
+   try {
+     const { id } = req.params;
+     const movimientos = await getMovimientos();
+     const movimiento = movimientos.find((m: any) => String(m?.ID_Movimiento ?? "") === String(id));
+
+     if (!movimiento) {
+       return res.status(404).json({
+         ok: false,
+         message: "Movimiento no encontrado",
+       });
+     }
+
+     const referencia = String(movimiento?.Referencia ?? "").trim();
+
+     if (referencia && /^\d+$/.test(referencia)) {
+       return res.status(400).json({
+         ok: false,
+         message: "No se puede eliminar un movimiento ligado a una venta",
+       });
+     }
+
+     await deleteMovimientoSheet(String(id));
+
+     res.json({
+      ok: true,
+      message: "Movimiento eliminado correctamente",
+     });
+    } catch (error: any) {
+     console.error("delete movimiento error:", error);
+     res.status(500).json({
+       ok: false,
+       message: error?.message || "Error al eliminar movimiento",
+     });
+   }
+ });
+
+
 
   app.get("/api/sheets/balances", async (req, res) => {
     try {

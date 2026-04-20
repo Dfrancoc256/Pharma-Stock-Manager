@@ -14,6 +14,7 @@ import {
   User,
   Calendar,
   Hash,
+  Trash2,
 } from "lucide-react";
 
 interface ItemVenta {
@@ -66,6 +67,11 @@ function toMoney(value: string | number | null | undefined) {
 function toSafeNumber(value: string | number | null | undefined) {
   const num = Number(value ?? 0);
   return Number.isFinite(num) ? num : 0;
+}
+
+function esMovimientoManual(mov: Movimiento | null) {
+  if (!mov) return false;
+  return !mov.referencia || !/^\d+$/.test(String(mov.referencia).trim());
 }
 
 export default function BalancesPage() {
@@ -148,9 +154,44 @@ export default function BalancesPage() {
     },
   });
 
+  const deleteMov = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/sheets/movimientos/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(json?.message || "Error al eliminar movimiento");
+      }
+
+      return json;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/sheets/balances"] });
+      setSelectedMov(null);
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createMov.mutate({ tipo, concepto, monto });
+  };
+
+  const handleDeleteMovimiento = () => {
+    if (!selectedMov) return;
+
+    if (!esMovimientoManual(selectedMov)) {
+      alert("No se puede eliminar un movimiento ligado a una venta.");
+      return;
+    }
+
+    const ok = confirm(`¿Deseas eliminar el movimiento "${selectedMov.concepto}"?`);
+    if (!ok) return;
+
+    deleteMov.mutate(selectedMov.id);
   };
 
   return (
@@ -223,9 +264,7 @@ export default function BalancesPage() {
               <TrendingUp size={18} className="text-green-600" />
               <span className="text-sm text-muted-foreground font-medium">Ingresos</span>
             </div>
-            <div className="text-3xl font-black text-green-600">
-              Q {toMoney(data.ingresos)}
-            </div>
+            <div className="text-3xl font-black text-green-600">Q {toMoney(data.ingresos)}</div>
           </div>
 
           <div className="glass-card rounded-3xl p-6">
@@ -233,9 +272,7 @@ export default function BalancesPage() {
               <TrendingDown size={18} className="text-red-500" />
               <span className="text-sm text-muted-foreground font-medium">Egresos</span>
             </div>
-            <div className="text-3xl font-black text-red-500">
-              Q {toMoney(data.egresos)}
-            </div>
+            <div className="text-3xl font-black text-red-500">Q {toMoney(data.egresos)}</div>
           </div>
 
           <div className="glass-card rounded-3xl p-6">
@@ -468,6 +505,24 @@ export default function BalancesPage() {
                     Movimiento manual sin productos asociados
                   </p>
                 )}
+
+              <div className="pt-2">
+                {esMovimientoManual(selectedMov) ? (
+                  <button
+                    onClick={handleDeleteMovimiento}
+                    disabled={deleteMov.isPending}
+                    className="w-full py-3 rounded-xl font-bold bg-red-500 text-white hover:bg-red-600 flex items-center justify-center gap-2 interactive-btn disabled:opacity-60"
+                    data-testid="button-eliminar-movimiento"
+                  >
+                    <Trash2 size={18} />
+                    {deleteMov.isPending ? "Eliminando..." : "Eliminar movimiento"}
+                  </button>
+                ) : (
+                  <div className="text-xs text-center text-muted-foreground bg-muted/40 rounded-xl px-3 py-3">
+                    Este movimiento está ligado a una venta y no se puede eliminar desde Balances.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -52,7 +52,13 @@ interface Fiador {
 }
 
 type TipoPrecio = "unidad" | "blister" | "caja";
-type CartItem = { producto: Producto; cantidad: number; tipoPrecio: TipoPrecio };
+
+type CartItem = {
+  producto: Producto;
+  cantidad: number;
+  tipoPrecio: TipoPrecio;
+  precioEditado?: number;
+};
 
 type AIResultado = {
   id: string;
@@ -79,6 +85,13 @@ function getPrecio(p: Producto, tipo: TipoPrecio): number {
   if (tipo === "blister") return parseFloat(p["Precio blister"] || "0");
   if (tipo === "caja") return parseFloat(p["Precio caja"] || "0");
   return parseFloat(p["Precio unidad"] || "0");
+}
+
+function getPrecioFinal(item: CartItem): number {
+  if (item.precioEditado !== undefined && item.precioEditado > 0) {
+    return item.precioEditado;
+  }
+  return getPrecio(item.producto, item.tipoPrecio);
 }
 
 function safeArray<T>(value: unknown): T[] {
@@ -321,17 +334,6 @@ export default function POSPage() {
   const [emailSending, setEmailSending] = useState(false);
   const [emailStatus, setEmailStatus] = useState<"idle" | "ok" | "error">("idle");
 
-  const cartTotal = useMemo(
-    () => cart.reduce((acc, item) => acc + getPrecio(item.producto, item.tipoPrecio) * item.cantidad, 0),
-    [cart]
-  );
-
-  useEffect(() => {
-    if (isCheckoutOpen) {
-      setAmountPaid(cartTotal > 0 ? cartTotal.toFixed(2) : "");
-    }
-  }, [isCheckoutOpen, cartTotal]);
-
   const [infoProducto, setInfoProducto] = useState<Producto | null>(null);
 
   const [search, setSearch] = useState("");
@@ -339,6 +341,39 @@ export default function POSPage() {
   const [aiResultados, setAIResultados] = useState<AIResultado[] | null>(null);
   const [aiSugerencia, setAISugerencia] = useState("");
   const [aiError, setAIError] = useState("");
+
+  const cartTotal = useMemo(
+    () => cart.reduce((acc, item) => acc + getPrecioFinal(item) * item.cantidad, 0),
+    [cart]
+  );
+
+  const updateTipoPrecio = (id: string, oldTipo: TipoPrecio, newTipo: TipoPrecio) => {
+    setCart((prev) =>
+      prev.map((i) =>
+        i.producto.ID === id && i.tipoPrecio === oldTipo
+          ? { ...i, tipoPrecio: newTipo, precioEditado: 0 }
+          : i
+      )
+    );
+  };
+
+  const updatePrecioEditado = (id: string, tipoPrecio: TipoPrecio, value: string) => {
+    const numero = parseFloat(value);
+
+    setCart((prev) =>
+      prev.map((i) =>
+        i.producto.ID === id && i.tipoPrecio === tipoPrecio
+          ? { ...i, precioEditado: isNaN(numero) ? 0 : numero }
+          : i
+      )
+    );
+  };
+
+  useEffect(() => {
+    if (isCheckoutOpen) {
+      setAmountPaid(cartTotal > 0 ? cartTotal.toFixed(2) : "");
+    }
+  }, [isCheckoutOpen, cartTotal]);
 
   const { data: productosRaw, isLoading } = useQuery({
     queryKey: ["/api/sheets/stock"],
@@ -392,27 +427,23 @@ export default function POSPage() {
         queryClient.invalidateQueries({ queryKey: ["/api/sheets/fiadores"] });
 
         const total = cartTotal;
-
         const listaFiadores = safeArray<Fiador>(fiadores);
 
-        const email =
-          tipo === "fiado" && fiadorModo === "nuevo"
-            ? (nuevoFiadorEmail || "")
-            : "";
+        const email = tipo === "fiado" && fiadorModo === "nuevo" ? nuevoFiadorEmail || "" : "";
 
         const telefono =
           tipo === "fiado" && fiadorModo === "nuevo"
-            ? (nuevoFiadorTel || "")
+            ? nuevoFiadorTel || ""
             : tipo === "fiado"
-              ? (listaFiadores.find((f) => f.Fiador_ID === fiadorId)?.Telefono || "")
+              ? listaFiadores.find((f) => f.Fiador_ID === fiadorId)?.Telefono || ""
               : "";
 
         const nombre =
           tipo === "fiado"
             ? fiadorModo === "nuevo"
-              ? (nuevoFiadorNombre || "")
-              : (listaFiadores.find((f) => f.Fiador_ID === fiadorId)?.Nombre || "")
-            : (clienteNombre || "Contado");
+              ? nuevoFiadorNombre || ""
+              : listaFiadores.find((f) => f.Fiador_ID === fiadorId)?.Nombre || ""
+            : clienteNombre || "Contado";
 
         setReceiptData({
           items: Array.isArray(cart) ? [...cart] : [],
@@ -490,7 +521,7 @@ export default function POSPage() {
             : i
         );
       }
-      return [...prev, { producto, cantidad: 1, tipoPrecio: "unidad" }];
+      return [...prev, { producto, cantidad: 1, tipoPrecio: "unidad", precioEditado: 0 }];
     });
   };
 
@@ -503,12 +534,6 @@ export default function POSPage() {
         }
         return i;
       })
-    );
-  };
-
-  const updateTipoPrecio = (id: string, oldTipo: TipoPrecio, newTipo: TipoPrecio) => {
-    setCart((prev) =>
-      prev.map((i) => (i.producto.ID === id && i.tipoPrecio === oldTipo ? { ...i, tipoPrecio: newTipo } : i))
     );
   };
 
@@ -555,7 +580,7 @@ export default function POSPage() {
         : null;
 
     const fechaActual = new Date().toLocaleString("sv-SE", {
-       timeZone: "America/Guatemala",
+      timeZone: "America/Guatemala",
     }).replace("T", " ");
 
     createVenta.mutate({
@@ -569,23 +594,22 @@ export default function POSPage() {
       fiadorId: tipo === "fiado" ? resolvedFiadorId : "",
       metodoPago,
       total: cartTotal.toFixed(2),
-
-      // 🔥 AGREGA ESTO
       fecha: fechaActual,
+      items: cart.map((i) => {
+        const precioFinal = getPrecioFinal(i);
+        const costoCompra = parseFloat(i.producto["Precio compra"] || "0");
 
-      items: cart.map((i) => ({
-        productoId: i.producto.ID,
-        nombre: i.producto.Nombre,
-        tipoPrecio: i.tipoPrecio,
-        cantidad: i.cantidad,
-        precioUnitario: getPrecio(i.producto, i.tipoPrecio).toFixed(2),
-        costoUnitario: i.producto["Precio compra"] || "0",
-        subtotal: (getPrecio(i.producto, i.tipoPrecio) * i.cantidad).toFixed(2),
-        utilidad: (
-          getPrecio(i.producto, i.tipoPrecio) -
-          parseFloat(i.producto["Precio compra"] || "0")
-        ).toFixed(2),
-      })),
+        return {
+          productoId: i.producto.ID,
+          nombre: i.producto.Nombre,
+          tipoPrecio: i.tipoPrecio,
+          cantidad: i.cantidad,
+          precioUnitario: precioFinal.toFixed(2),
+          costoUnitario: i.producto["Precio compra"] || "0",
+          subtotal: (precioFinal * i.cantidad).toFixed(2),
+          utilidad: (precioFinal - costoCompra).toFixed(2),
+        };
+      }),
     });
   };
 
@@ -638,7 +662,7 @@ export default function POSPage() {
 
     doc.setFont("helvetica", "normal");
     for (const item of receiptData.items) {
-      const precio = getPrecio(item.producto, item.tipoPrecio);
+      const precio = getPrecioFinal(item);
       const total = precio * item.cantidad;
       const nombre =
         item.producto.Nombre.length > 26 ? item.producto.Nombre.substring(0, 24) + ".." : item.producto.Nombre;
@@ -970,10 +994,28 @@ export default function POSPage() {
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-xs truncate">{item.producto.Nombre}</p>
-                      <p className="text-primary font-bold text-sm">
-                        Q {getPrecio(item.producto, item.tipoPrecio).toFixed(2)}
+
+                      <p className="text-[11px] text-muted-foreground mb-1">
+                        Base: Q {getPrecio(item.producto, item.tipoPrecio).toFixed(2)}
                       </p>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-semibold text-muted-foreground">Precio:</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={item.precioEditado ?? ""}
+                          onChange={(e) =>
+                            updatePrecioEditado(item.producto.ID, item.tipoPrecio, e.target.value)
+                          }
+                          placeholder={getPrecio(item.producto, item.tipoPrecio).toFixed(2)}
+                          className="w-24 px-2 py-1 rounded-lg border border-border bg-background text-sm font-bold text-primary"
+                          data-testid={`input-precio-editado-${item.producto.ID}-${item.tipoPrecio}`}
+                        />
+                      </div>
                     </div>
+
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setInfoProducto(item.producto)}
@@ -1030,7 +1072,7 @@ export default function POSPage() {
                       </button>
                     </div>
                     <span className="font-extrabold text-sm text-foreground">
-                      Q {(getPrecio(item.producto, item.tipoPrecio) * item.cantidad).toFixed(2)}
+                      Q {(getPrecioFinal(item) * item.cantidad).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -1366,7 +1408,13 @@ export default function POSPage() {
                     data-testid="button-share-email"
                   >
                     {emailSending ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
-                    {emailSending ? "..." : emailStatus === "ok" ? "¡Enviado!" : emailStatus === "error" ? "Error" : "Enviar"}
+                    {emailSending
+                      ? "..."
+                      : emailStatus === "ok"
+                        ? "¡Enviado!"
+                        : emailStatus === "error"
+                          ? "Error"
+                          : "Enviar"}
                   </button>
                 </div>
               </div>
