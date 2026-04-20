@@ -420,6 +420,136 @@ export async function createMovimientoSheet(params: {
   return { id: newId, ...params, monto: toNumber(params.monto) };
 }
 
+// ==================== PEDIDOS ====================
+
+export async function getPedidos() {
+  const rows = await leerHoja("Pedidos");
+  const all = rowsToObjects(rows);
+
+  return all.map((p) => ({
+    ...p,
+    ID_Pedido: String(p["ID_Pedido"] ?? p["ID"] ?? ""),
+    Fecha: p["Fecha"] ?? "",
+    Producto_ID: String(p["Producto_ID"] ?? ""),
+    Nombre: p["Nombre"] ?? "",
+    Proveedor: p["Proveedor"] ?? "",
+    Cantidad: toInt(p["Cantidad"]),
+    Costo_unitario: toNumber(p["Costo_unitario"]),
+    Total: toNumber(p["Total"]),
+    Estado: p["Estado"] ?? "pendiente",
+    Usuario: p["Usuario"] ?? "",
+    Observaciones: p["Observaciones"] ?? "",
+  }));
+}
+
+export async function createPedidoSheet(params: {
+  fecha: string;
+  productoId: string;
+  nombre: string;
+  proveedor: string;
+  cantidad: number;
+  costoUnitario: number;
+  total: number;
+  estado: string;
+  usuario: string;
+  observaciones: string;
+}) {
+  const rows = await leerHoja("Pedidos");
+  const lastId = rows.length > 1 ? parseInt(rows[rows.length - 1][0]) || 0 : 0;
+  const newId = lastId + 1;
+
+  await appendFila("Pedidos", [
+    newId,
+    params.fecha,
+    params.productoId,
+    params.nombre,
+    params.proveedor,
+    toInt(params.cantidad),
+    toNumber(params.costoUnitario),
+    toNumber(params.total),
+    params.estado,
+    params.usuario,
+    params.observaciones,
+  ]);
+
+  return {
+    id: String(newId),
+    nombre: params.nombre,
+    estado: params.estado,
+  };
+}
+
+export async function updatePedidoSheet(
+  id: string,
+  pedido: {
+    fecha?: string;
+    productoId?: string;
+    nombre?: string;
+    proveedor?: string;
+    cantidad?: number;
+    costoUnitario?: number;
+    total?: number;
+    estado?: string;
+    usuario?: string;
+    observaciones?: string;
+  }
+) {
+  const rows = await leerHoja("Pedidos");
+  if (!rows || rows.length < 2) {
+    throw new Error("La hoja Pedidos no tiene datos");
+  }
+
+  const rowIndex = rows.findIndex((row, i) => i > 0 && String(row[0] ?? "").trim() === String(id).trim());
+  if (rowIndex === -1) {
+    throw new Error("Pedido no encontrado");
+  }
+
+  const row = rows[rowIndex];
+
+  const fecha = pedido.fecha ?? row[1] ?? "";
+  const productoId = pedido.productoId ?? row[2] ?? "";
+  const nombre = pedido.nombre ?? row[3] ?? "";
+  const proveedor = pedido.proveedor ?? row[4] ?? "";
+  const cantidad = pedido.cantidad !== undefined ? toInt(pedido.cantidad) : toInt(row[5]);
+  const costoUnitario =
+    pedido.costoUnitario !== undefined ? toNumber(pedido.costoUnitario) : toNumber(row[6]);
+  const total =
+    pedido.total !== undefined ? toNumber(pedido.total) : toNumber(cantidad * costoUnitario);
+  const estado = pedido.estado ?? row[8] ?? "pendiente";
+  const usuario = pedido.usuario ?? row[9] ?? "";
+  const observaciones = pedido.observaciones ?? row[10] ?? "";
+
+  await updateRango(`Pedidos!A${rowIndex + 1}:K${rowIndex + 1}`, [[
+    id,
+    fecha,
+    productoId,
+    nombre,
+    proveedor,
+    cantidad,
+    costoUnitario,
+    total,
+    estado,
+    usuario,
+    observaciones,
+  ]]);
+
+  return { id: String(id), nombre, estado };
+}
+
+export async function deletePedidoSheet(id: string) {
+  const rows = await leerHoja("Pedidos");
+
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0] ?? "").trim() === String(id).trim()) {
+      const emptyCols = Array(11).fill("");
+      await updateRango(`Pedidos!A${i + 1}:K${i + 1}`, [emptyCols]);
+      return { ok: true };
+    }
+  }
+
+  throw new Error("Pedido no encontrado");
+}
+
 // ==================== FIADORES ====================
 
 export async function getFiadores() {

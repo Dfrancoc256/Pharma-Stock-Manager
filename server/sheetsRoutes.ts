@@ -10,6 +10,10 @@ import {
   createProductoSheet,
   updateProductoSheet,
   deleteProductoSheet,
+  getPedidos,
+  createPedidoSheet,
+  updatePedidoSheet,
+  deletePedidoSheet,
 } from "./googleSheets";
 
 export function registerSheetsRoutes(app: Express) {
@@ -600,6 +604,129 @@ export function registerSheetsRoutes(app: Express) {
       res.status(500).json({
         ok: false,
         message: "Error al cargar balances",
+      });
+    }
+  });
+
+  // ==================== PEDIDOS ====================
+
+  app.get("/api/sheets/pedidos", async (req, res) => {
+    try {
+      const data = await getPedidos();
+      res.json({ ok: true, data });
+    } catch (error) {
+      console.error("pedidos error:", error);
+      res.status(500).json({
+        ok: false,
+        message: "Error al cargar pedidos",
+      });
+    }
+  });
+
+  app.post("/api/sheets/pedidos", async (req, res) => {
+    try {
+      const {
+        fecha,
+        productoId,
+        nombre,
+        proveedor,
+        cantidad,
+        costoUnitario,
+        estado,
+        usuario,
+        observaciones,
+      } = req.body;
+
+      if (!nombre || cantidad === undefined || cantidad === null || cantidad === "") {
+        return res.status(400).json({
+          ok: false,
+          message: "Datos incompletos para registrar pedido",
+        });
+      }
+
+      const cantidadFinal = Number(cantidad) || 0;
+      const costoUnitarioFinal = Number(costoUnitario) || 0;
+      const total = cantidadFinal * costoUnitarioFinal;
+
+      const result = await createPedidoSheet({
+        fecha: fecha || new Date().toISOString().slice(0, 19).replace("T", " "),
+        productoId: String(productoId || ""),
+        nombre: String(nombre),
+        proveedor: String(proveedor || ""),
+        cantidad: cantidadFinal,
+        costoUnitario: costoUnitarioFinal,
+        total,
+        estado: String(estado || "pendiente"),
+        usuario: String(usuario || "Sistema"),
+        observaciones: String(observaciones || ""),
+      });
+
+      res.json({ ok: true, data: result });
+    } catch (error) {
+      console.error("crear pedido error:", error);
+      res.status(500).json({
+        ok: false,
+        message: "Error al registrar pedido",
+      });
+    }
+  });
+
+  app.put("/api/sheets/pedidos/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const {
+        fecha,
+        productoId,
+        nombre,
+        proveedor,
+        cantidad,
+        costoUnitario,
+        estado,
+        usuario,
+        observaciones,
+      } = req.body;
+
+      const cantidadFinal = cantidad !== undefined ? Number(cantidad) || 0 : undefined;
+      const costoUnitarioFinal = costoUnitario !== undefined ? Number(costoUnitario) || 0 : undefined;
+
+      const total =
+        cantidadFinal !== undefined && costoUnitarioFinal !== undefined
+          ? cantidadFinal * costoUnitarioFinal
+          : undefined;
+
+      const result = await updatePedidoSheet(String(id), {
+        fecha,
+        productoId,
+        nombre,
+        proveedor,
+        cantidad: cantidadFinal,
+        costoUnitario: costoUnitarioFinal,
+        total,
+        estado,
+        usuario,
+        observaciones,
+      });
+
+      res.json({ ok: true, data: result });
+    } catch (error) {
+      console.error("update pedido error:", error);
+      res.status(500).json({
+        ok: false,
+        message: "Error al actualizar pedido",
+      });
+    }
+  });
+
+  app.delete("/api/sheets/pedidos/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await deletePedidoSheet(String(id));
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("delete pedido error:", error);
+      res.status(500).json({
+        ok: false,
+        message: "Error al eliminar pedido",
       });
     }
   });
