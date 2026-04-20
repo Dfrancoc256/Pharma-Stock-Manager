@@ -9,13 +9,12 @@ import POSPage from "@/pages/pos";
 import InventoryPage from "@/pages/inventory";
 import FiadoresPage from "@/pages/fiadores";
 import BalancesPage from "@/pages/balances";
+import PedidosPage from "@/pages/pedidos";
 import UsersPage from "@/pages/users";
 import ImportarPage from "@/pages/importar";
 import LoginPage from "@/pages/login";
 import { useAuth } from "@/hooks/use-auth";
 
-// Lazy-load Dashboard so recharts (and all d3 deps) are in a separate async chunk.
-// This prevents the Rollup TDZ circular-reference error in production builds.
 const DashboardPage = lazy(() => import("@/pages/dashboard"));
 
 class DashboardErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error?: Error }> {
@@ -23,9 +22,11 @@ class DashboardErrorBoundary extends Component<{ children: ReactNode }, { hasErr
     super(props);
     this.state = { hasError: false };
   }
+
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, error };
   }
+
   render() {
     if (this.state.hasError) {
       return (
@@ -35,10 +36,13 @@ class DashboardErrorBoundary extends Component<{ children: ReactNode }, { hasErr
           <button
             className="text-sm underline text-primary"
             onClick={() => this.setState({ hasError: false })}
-          >Reintentar</button>
+          >
+            Reintentar
+          </button>
         </div>
       );
     }
+
     return this.props.children;
   }
 }
@@ -67,19 +71,29 @@ function AppRouter() {
   return (
     <Switch>
       <Route path="/login" component={LoginPage} />
+
       <Route path="/">
         <DashboardErrorBoundary>
-          <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary" /></div>}>
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary" />
+              </div>
+            }
+          >
             <DashboardPage />
           </Suspense>
         </DashboardErrorBoundary>
       </Route>
+
       <Route path="/pos" component={POSPage} />
       <Route path="/inventory" component={InventoryPage} />
+      <Route path="/pedidos" component={PedidosPage} />
       <Route path="/fiadores" component={FiadoresPage} />
       <Route path="/balances" component={BalancesPage} />
       <Route path="/users" component={UsersPage} />
       <Route path="/importar" component={ImportarPage} />
+
       <Route component={NotFound} />
     </Switch>
   );
