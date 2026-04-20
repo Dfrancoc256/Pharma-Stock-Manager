@@ -612,7 +612,15 @@ export async function updateFiadorSaldoSheet(id: string, nuevoSaldo: number) {
 
 export async function getUsuariosSheet() {
   const rows = await leerHoja("Usuarios");
-  return rowsToObjects(rows);
+  const all = rowsToObjects(rows);
+
+  return all.map((u) => ({
+    ...u,
+    Usuario: String(u["Usuario"] ?? ""),
+    Pass: String(u["Pass"] ?? ""),
+    Rol: String(u["Rol"] ?? "VENDEDOR"),
+    Activo: String(u["Activo"] ?? "TRUE"),
+  }));
 }
 
 export async function createUsuarioSheet(params: {
@@ -621,8 +629,23 @@ export async function createUsuarioSheet(params: {
   rol: string;
   activo: string;
 }) {
+  const rows = await leerHoja("Usuarios");
+  const all = rowsToObjects(rows);
+
+  const existe = all.some(
+    (u) => String(u["Usuario"] ?? "").trim().toLowerCase() === params.usuario.trim().toLowerCase()
+  );
+
+  if (existe) {
+    throw new Error("El usuario ya existe");
+  }
+
   await appendFila("Usuarios", [params.usuario, params.pass, params.rol, params.activo]);
-  return params;
+  return {
+    Usuario: params.usuario,
+    Rol: params.rol,
+    Activo: params.activo,
+  };
 }
 
 export async function updateUsuarioSheet(
@@ -630,32 +653,50 @@ export async function updateUsuarioSheet(
   updates: { pass?: string; rol?: string; activo?: string }
 ) {
   const rows = await leerHoja("Usuarios");
-  if (!rows || rows.length < 2) return;
+  if (!rows || rows.length < 2) {
+    throw new Error("La hoja Usuarios no tiene datos");
+  }
 
   const headers = rows[0];
   const colIndex = (name: string) => headers.findIndex((h: string) => h.trim() === name);
+
   const userCol = colIndex("Usuario");
+  const passCol = colIndex("Pass");
+  const rolCol = colIndex("Rol");
+  const activoCol = colIndex("Activo");
+
+  if (userCol < 0) throw new Error("No existe la columna Usuario");
 
   for (let i = 1; i < rows.length; i++) {
-    if (rows[i][userCol] === usuario) {
-      const passCol = colIndex("Pass");
-      const rolCol = colIndex("Rol");
-      const activoCol = colIndex("Activo");
-      const colLetter = (n: number) => String.fromCharCode(65 + n);
+    if (String(rows[i][userCol] ?? "").trim() === String(usuario).trim()) {
+      const filaActual = [...rows[i]];
 
       if (updates.pass !== undefined && updates.pass !== "" && passCol >= 0) {
-        await updateRango(`Usuarios!${colLetter(passCol)}${i + 1}`, [[updates.pass]]);
+        filaActual[passCol] = updates.pass;
       }
 
       if (updates.rol !== undefined && rolCol >= 0) {
-        await updateRango(`Usuarios!${colLetter(rolCol)}${i + 1}`, [[updates.rol]]);
+        filaActual[rolCol] = updates.rol;
       }
 
       if (updates.activo !== undefined && activoCol >= 0) {
-        await updateRango(`Usuarios!${colLetter(activoCol)}${i + 1}`, [[updates.activo]]);
+        filaActual[activoCol] = updates.activo;
       }
 
-      return;
+      await updateRango(`Usuarios!A${i + 1}:D${i + 1}`, [[
+        filaActual[userCol] ?? "",
+        passCol >= 0 ? filaActual[passCol] ?? "" : "",
+        rolCol >= 0 ? filaActual[rolCol] ?? "VENDEDOR" : "VENDEDOR",
+        activoCol >= 0 ? filaActual[activoCol] ?? "TRUE" : "TRUE",
+      ]]);
+
+      return {
+        Usuario: String(filaActual[userCol] ?? ""),
+        Rol: String(rolCol >= 0 ? filaActual[rolCol] ?? "VENDEDOR" : "VENDEDOR"),
+        Activo: String(activoCol >= 0 ? filaActual[activoCol] ?? "TRUE" : "TRUE"),
+      };
     }
   }
+
+  throw new Error("Usuario no encontrado");
 }

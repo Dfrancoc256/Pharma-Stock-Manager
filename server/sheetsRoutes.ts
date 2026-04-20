@@ -14,6 +14,9 @@ import {
   createPedidoSheet,
   updatePedidoSheet,
   deletePedidoSheet,
+  getUsuariosSheet,
+  createUsuarioSheet,
+  updateUsuarioSheet,
 } from "./googleSheets";
 
 export function registerSheetsRoutes(app: Express) {
@@ -738,6 +741,70 @@ export function registerSheetsRoutes(app: Express) {
       res.status(500).json({
         ok: false,
         message: "Error al eliminar pedido",
+      });
+    }
+  });
+
+  // ==================== USUARIOS ====================
+
+  app.get("/api/sheets/users", async (_req, res) => {
+    try {
+      const data = await getUsuariosSheet();
+      res.json({ ok: true, data });
+    } catch (error) {
+      console.error("users error:", error);
+      res.status(500).json({
+        ok: false,
+        message: "Error al cargar usuarios",
+      });
+    }
+  });
+
+  app.post("/api/sheets/users", async (req, res) => {
+    try {
+      const { usuario, pass, rol, activo } = req.body;
+
+      if (!usuario || !pass) {
+        return res.status(400).json({
+          ok: false,
+          message: "Usuario y contraseña son obligatorios",
+        });
+      }
+
+      const result = await createUsuarioSheet({
+        usuario: String(usuario).trim(),
+        pass: String(pass),
+        rol: String(rol || "VENDEDOR"),
+        activo: String(activo || "TRUE"),
+      });
+
+      res.json({ ok: true, data: result });
+    } catch (error: any) {
+      console.error("create user error:", error);
+      res.status(500).json({
+        ok: false,
+        message: error?.message || "Error al crear usuario",
+      });
+    }
+  });
+
+  app.put("/api/sheets/users/:usuario", async (req, res) => {
+    try {
+      const { usuario } = req.params;
+      const { pass, rol, activo } = req.body;
+
+      const result = await updateUsuarioSheet(String(usuario), {
+        pass: pass !== undefined ? String(pass) : undefined,
+        rol: rol !== undefined ? String(rol) : undefined,
+        activo: activo !== undefined ? String(activo) : undefined,
+      });
+
+      res.json({ ok: true, data: result });
+    } catch (error: any) {
+      console.error("update user error:", error);
+      res.status(500).json({
+        ok: false,
+        message: error?.message || "Error al actualizar usuario",
       });
     }
   });
