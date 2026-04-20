@@ -554,6 +554,10 @@ export default function POSPage() {
         ? fiadores.find((f) => f.Fiador_ID === fiadorId)
         : null;
 
+    const fechaActual = new Date().toLocaleString("sv-SE", {
+       timeZone: "America/Guatemala",
+    }).replace("T", " ");
+
     createVenta.mutate({
       cliente:
         tipo === "fiado"
@@ -565,6 +569,10 @@ export default function POSPage() {
       fiadorId: tipo === "fiado" ? resolvedFiadorId : "",
       metodoPago,
       total: cartTotal.toFixed(2),
+
+      // 🔥 AGREGA ESTO
+      fecha: fechaActual,
+
       items: cart.map((i) => ({
         productoId: i.producto.ID,
         nombre: i.producto.Nombre,
@@ -573,7 +581,10 @@ export default function POSPage() {
         precioUnitario: getPrecio(i.producto, i.tipoPrecio).toFixed(2),
         costoUnitario: i.producto["Precio compra"] || "0",
         subtotal: (getPrecio(i.producto, i.tipoPrecio) * i.cantidad).toFixed(2),
-        utilidad: (getPrecio(i.producto, i.tipoPrecio) - parseFloat(i.producto["Precio compra"] || "0")).toFixed(2),
+        utilidad: (
+          getPrecio(i.producto, i.tipoPrecio) -
+          parseFloat(i.producto["Precio compra"] || "0")
+        ).toFixed(2),
       })),
     });
   };
