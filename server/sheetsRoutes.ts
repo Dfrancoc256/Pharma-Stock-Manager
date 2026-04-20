@@ -78,10 +78,23 @@ export function registerSheetsRoutes(app: Express) {
         return "";
       };
 
-      const today = new Date();
-      const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
-        today.getDate()
-      ).padStart(2, "0")}`;
+      const getGuatemalaDateKey = () => {
+        const now = new Date();
+        const parts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "America/Guatemala",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).formatToParts(now);
+
+        const year = parts.find((p) => p.type === "year")?.value ?? "";
+        const month = parts.find((p) => p.type === "month")?.value ?? "";
+        const day = parts.find((p) => p.type === "day")?.value ?? "";
+
+        return `${year}-${month}-${day}`;
+      };
+
+      const todayKey = getGuatemalaDateKey();
 
       const ventasHoyBase = safeVentas.filter((v) => normalizeDateKey(v?.Fecha) === todayKey);
 
@@ -607,8 +620,6 @@ export function registerSheetsRoutes(app: Express) {
       });
     }
   });
-
-  // ==================== PEDIDOS ====================
 
   app.get("/api/sheets/pedidos", async (req, res) => {
     try {

@@ -193,7 +193,24 @@ export default function DashboardPage() {
 
   const ingresosHoy = ventasHoy.reduce((acc, v) => acc + toNumber(v?.total), 0);
 
-  const hoyKey = new Date().toISOString().slice(0, 10);
+  const getGuatemalaDateKey = () => {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Guatemala",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(now);
+
+    const year = parts.find((p) => p.type === "year")?.value ?? "";
+    const month = parts.find((p) => p.type === "month")?.value ?? "";
+    const day = parts.find((p) => p.type === "day")?.value ?? "";
+
+    return `${year}-${month}-${day}`;
+  };
+
+  const hoyKey = getGuatemalaDateKey();
+
   const egresosHoy = ventasPorDia
     .filter((d) => String(d?.fecha || "").startsWith(hoyKey))
     .reduce((acc, d) => acc + toNumber(d?.egresos), 0);
