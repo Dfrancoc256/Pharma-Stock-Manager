@@ -21,6 +21,63 @@ import {
 } from "./googleSheets";
 
 export function registerSheetsRoutes(app: Express) {
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { usuario, password } = req.body;
+
+      if (!usuario || !password) {
+        return res.status(400).json({
+          ok: false,
+          message: "Usuario y contraseña requeridos",
+        });
+      }
+
+      const usuarios = await getUsuariosSheet();
+
+      const user = usuarios.find(
+        (u: any) =>
+          String(u?.Usuario ?? "").trim().toLowerCase() ===
+          String(usuario).trim().toLowerCase()
+      );
+
+      if (!user) {
+        return res.status(401).json({
+          ok: false,
+          message: "Usuario o contraseña incorrectos",
+        });
+      }
+
+      if (String(user?.Pass ?? "").trim() !== String(password).trim()) {
+        return res.status(401).json({
+          ok: false,
+          message: "Usuario o contraseña incorrectos",
+        });
+      }
+
+      if (String(user?.Activo ?? "TRUE").trim().toUpperCase() !== "TRUE") {
+        return res.status(403).json({
+          ok: false,
+          message: "Usuario inactivo",
+        });
+      }
+
+      return res.json({
+        ok: true,
+        data: {
+          usuario: String(user.Usuario ?? ""),
+          rol: String(user.Rol ?? "VENDEDOR"),
+          activo: String(user.Activo ?? "TRUE"),
+        },
+      });
+    } catch (error) {
+      console.error("login error:", error);
+      return res.status(500).json({
+        ok: false,
+        message: "Error al iniciar sesión",
+      });
+    }
+  });
+
   app.get("/api/sheets/dashboard", async (req, res) => {
     try {
       const stock = await getStock();
@@ -482,43 +539,41 @@ export function registerSheetsRoutes(app: Express) {
   });
 
   app.delete("/api/sheets/movimientos/:id", async (req, res) => {
-   try {
-     const { id } = req.params;
-     const movimientos = await getMovimientos();
-     const movimiento = movimientos.find((m: any) => String(m?.ID_Movimiento ?? "") === String(id));
+    try {
+      const { id } = req.params;
+      const movimientos = await getMovimientos();
+      const movimiento = movimientos.find((m: any) => String(m?.ID_Movimiento ?? "") === String(id));
 
-     if (!movimiento) {
-       return res.status(404).json({
-         ok: false,
-         message: "Movimiento no encontrado",
-       });
-     }
+      if (!movimiento) {
+        return res.status(404).json({
+          ok: false,
+          message: "Movimiento no encontrado",
+        });
+      }
 
-     const referencia = String(movimiento?.Referencia ?? "").trim();
+      const referencia = String(movimiento?.Referencia ?? "").trim();
 
-     if (referencia && /^\d+$/.test(referencia)) {
-       return res.status(400).json({
-         ok: false,
-         message: "No se puede eliminar un movimiento ligado a una venta",
-       });
-     }
+      if (referencia && /^\d+$/.test(referencia)) {
+        return res.status(400).json({
+          ok: false,
+          message: "No se puede eliminar un movimiento ligado a una venta",
+        });
+      }
 
-     await deleteMovimientoSheet(String(id));
+      await deleteMovimientoSheet(String(id));
 
-     res.json({
-      ok: true,
-      message: "Movimiento eliminado correctamente",
-     });
+      res.json({
+        ok: true,
+        message: "Movimiento eliminado correctamente",
+      });
     } catch (error: any) {
-     console.error("delete movimiento error:", error);
-     res.status(500).json({
-       ok: false,
-       message: error?.message || "Error al eliminar movimiento",
-     });
-   }
- });
-
-
+      console.error("delete movimiento error:", error);
+      res.status(500).json({
+        ok: false,
+        message: error?.message || "Error al eliminar movimiento",
+      });
+    }
+  });
 
   app.get("/api/sheets/balances", async (req, res) => {
     try {
