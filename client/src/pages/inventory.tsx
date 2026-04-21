@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import { PageHeader } from "@/components/PageHeader";
@@ -10,15 +10,15 @@ interface Producto {
   Detalle: string;
   Casa: string;
   Categoria: string;
-  "Precio compra": string;
-  "Precio unidad": string;
-  "Precio blister": string;
-  "Precio caja": string;
+  "Precio compra": string | number;
+  "Precio unidad": string | number;
+  "Precio blister": string | number;
+  "Precio caja": string | number;
   Posicion: string;
-  Stock: string;
+  Stock: string | number;
   Drogueria: string;
-  "Unidades blister": string;
-  "Unidades caja": string;
+  "Unidades blister": string | number;
+  "Unidades caja": string | number;
 }
 
 function safeArray<T>(value: unknown): T[] {
@@ -29,8 +29,23 @@ function safeArray<T>(value: unknown): T[] {
   return [];
 }
 
+function toInputValue(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
+function toNumber(value: unknown): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
 export default function InventoryPage() {
   const queryClient = useQueryClient();
+
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editProd, setEditProd] = useState<Producto | null>(null);
@@ -49,7 +64,7 @@ export default function InventoryPage() {
   const [unidadesBlister, setUnidadesBlister] = useState("");
   const [unidadesCaja, setUnidadesCaja] = useState("");
 
-  const { data: productosRaw, isLoading } = useQuery({
+  const { data: productosRaw, isLoading, error } = useQuery({
     queryKey: ["/api/sheets/stock"],
     queryFn: async () => {
       const res = await fetch("/api/sheets/stock", { credentials: "include" });
@@ -68,11 +83,17 @@ export default function InventoryPage() {
         body: JSON.stringify(body),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Error creando producto");
-      return res.json();
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(json?.message || "Error creando producto");
+      }
+
+      return json;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sheets/stock"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/sheets/stock"] });
       resetForm();
       setIsAddOpen(false);
     },
@@ -86,11 +107,17 @@ export default function InventoryPage() {
         body: JSON.stringify(body),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Error actualizando producto");
-      return res.json();
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(json?.message || "Error actualizando producto");
+      }
+
+      return json;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sheets/stock"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/sheets/stock"] });
       resetForm();
       setEditProd(null);
     },
@@ -102,9 +129,18 @@ export default function InventoryPage() {
         method: "DELETE",
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Error eliminando producto");
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(json?.message || "Error eliminando producto");
+      }
+
+      return json;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/sheets/stock"] }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/sheets/stock"] });
+    },
   });
 
   const resetForm = () => {
@@ -123,37 +159,45 @@ export default function InventoryPage() {
     setUnidadesCaja("");
   };
 
+  const closeModal = () => {
+    resetForm();
+    setIsAddOpen(false);
+    setEditProd(null);
+  };
+
   const openEdit = (p: Producto) => {
     setEditProd(p);
-    setNombre(p.Nombre);
-    setDetalle(p.Detalle);
-    setCasa(p.Casa);
-    setCategoria(p.Categoria);
-    setPrecioCompra(p["Precio compra"]);
-    setPrecioUnidad(p["Precio unidad"]);
-    setPrecioBlister(p["Precio blister"]);
-    setPrecioCaja(p["Precio caja"]);
-    setPosicion(p.Posicion);
-    setDrogueria(p.Drogueria);
-    setStock(p.Stock);
-    setUnidadesBlister(p["Unidades blister"]);
-    setUnidadesCaja(p["Unidades caja"]);
+    setIsAddOpen(false);
+
+    setNombre(toInputValue(p.Nombre));
+    setDetalle(toInputValue(p.Detalle));
+    setCasa(toInputValue(p.Casa));
+    setCategoria(toInputValue(p.Categoria));
+    setPrecioCompra(toInputValue(p["Precio compra"]));
+    setPrecioUnidad(toInputValue(p["Precio unidad"]));
+    setPrecioBlister(toInputValue(p["Precio blister"]));
+    setPrecioCaja(toInputValue(p["Precio caja"]));
+    setPosicion(toInputValue(p.Posicion));
+    setDrogueria(toInputValue(p.Drogueria));
+    setStock(toInputValue(p.Stock));
+    setUnidadesBlister(toInputValue(p["Unidades blister"]));
+    setUnidadesCaja(toInputValue(p["Unidades caja"]));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     const body = {
-      nombre,
-      detalle,
-      casa,
-      categoria,
+      nombre: nombre.trim(),
+      detalle: detalle.trim(),
+      casa: casa.trim(),
+      categoria: categoria.trim(),
       precioCompra,
       precioUnidad,
       precioBlister,
       precioCaja,
-      posicion,
-      drogueria,
+      posicion: posicion.trim(),
+      drogueria: drogueria.trim(),
       stock,
       unidadesBlister,
       unidadesCaja,
@@ -166,13 +210,20 @@ export default function InventoryPage() {
     }
   };
 
-  const filtered = productos.filter(
-    (p) =>
-      p.ID &&
-      ((p.Nombre || "").toLowerCase().includes(search.toLowerCase()) ||
-        (p.Casa || "").toLowerCase().includes(search.toLowerCase()) ||
-        (p.Categoria || "").toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+
+    return productos.filter((p) => {
+      if (!p.ID) return false;
+      if (!q) return true;
+
+      return (
+        (p.Nombre || "").toLowerCase().includes(q) ||
+        (p.Casa || "").toLowerCase().includes(q) ||
+        (p.Categoria || "").toLowerCase().includes(q)
+      );
+    });
+  }, [productos, search]);
 
   const isOpen = isAddOpen || !!editProd;
   const isPending = createMut.isPending || updateMut.isPending;
@@ -186,6 +237,7 @@ export default function InventoryPage() {
           <button
             onClick={() => {
               resetForm();
+              setEditProd(null);
               setIsAddOpen(true);
             }}
             className="interactive-btn px-6 py-3 rounded-xl bg-primary text-white font-bold flex items-center gap-2 shadow-lg shadow-primary/25"
@@ -236,6 +288,12 @@ export default function InventoryPage() {
                     Cargando desde Google Sheets...
                   </td>
                 </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={11} className="p-8 text-center text-red-500">
+                    Error cargando inventario
+                  </td>
+                </tr>
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="p-12 text-center text-muted-foreground">
@@ -252,7 +310,9 @@ export default function InventoryPage() {
                     <td className="p-3 font-mono text-xs text-muted-foreground">{p.ID}</td>
                     <td className="p-3">
                       <div className="font-bold text-foreground">{p.Nombre}</div>
-                      <div className="text-xs text-muted-foreground line-clamp-1">{p.Detalle}</div>
+                      <div className="text-xs text-muted-foreground line-clamp-1">
+                        {p.Detalle}
+                      </div>
                     </td>
                     <td className="p-3 text-muted-foreground">{p.Casa || "—"}</td>
                     <td className="p-3 text-muted-foreground">{p.Categoria || "—"}</td>
@@ -260,25 +320,29 @@ export default function InventoryPage() {
                     <td className="p-3 text-center">
                       <span
                         className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                          (parseInt(p.Stock) || 0) < 5
+                          toNumber(p.Stock) < 5
                             ? "bg-red-100 text-red-700"
                             : "bg-green-100 text-green-700"
                         }`}
                       >
-                        {p.Stock || 0}
+                        {toNumber(p.Stock)}
                       </span>
                     </td>
                     <td className="p-3 text-right text-muted-foreground">
-                      Q {parseFloat(p["Precio compra"] || "0").toFixed(2)}
+                      Q {toNumber(p["Precio compra"]).toFixed(2)}
                     </td>
                     <td className="p-3 text-right font-bold text-primary">
-                      Q {parseFloat(p["Precio unidad"] || "0").toFixed(2)}
+                      Q {toNumber(p["Precio unidad"]).toFixed(2)}
                     </td>
                     <td className="p-3 text-right text-muted-foreground">
-                      {p["Precio blister"] ? `Q ${parseFloat(p["Precio blister"]).toFixed(2)}` : "—"}
+                      {toNumber(p["Precio blister"]) > 0
+                        ? `Q ${toNumber(p["Precio blister"]).toFixed(2)}`
+                        : "—"}
                     </td>
                     <td className="p-3 text-right text-muted-foreground">
-                      {p["Precio caja"] ? `Q ${parseFloat(p["Precio caja"]).toFixed(2)}` : "—"}
+                      {toNumber(p["Precio caja"]) > 0
+                        ? `Q ${toNumber(p["Precio caja"]).toFixed(2)}`
+                        : "—"}
                     </td>
                     <td className="p-3">
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -290,7 +354,9 @@ export default function InventoryPage() {
                         </button>
                         <button
                           onClick={() => {
-                            if (confirm("¿Eliminar?")) deleteMut.mutate(p.ID);
+                            if (confirm(`¿Eliminar "${p.Nombre}"?`)) {
+                              deleteMut.mutate(p.ID);
+                            }
                           }}
                           className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg interactive-btn"
                         >
@@ -309,25 +375,49 @@ export default function InventoryPage() {
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="glass-card rounded-3xl w-full max-w-2xl p-8 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold mb-6">{editProd ? "Editar Producto" : "Nuevo Producto"}</h2>
+            <h2 className="text-2xl font-bold mb-6">
+              {editProd ? "Editar Producto" : "Nuevo Producto"}
+            </h2>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-sm font-semibold mb-1">Nombre *</label>
-                  <input required className="input-field" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+                  <input
+                    required
+                    className="input-field"
+                    value={nombre}
+                    onChange={(e) => setNombre(e.target.value)}
+                  />
                 </div>
+
                 <div className="col-span-2">
                   <label className="block text-sm font-semibold mb-1">Detalle</label>
-                  <input className="input-field" value={detalle} onChange={(e) => setDetalle(e.target.value)} />
+                  <input
+                    className="input-field"
+                    value={detalle}
+                    onChange={(e) => setDetalle(e.target.value)}
+                  />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold mb-1">Casa</label>
-                  <input className="input-field" value={casa} onChange={(e) => setCasa(e.target.value)} />
+                  <input
+                    className="input-field"
+                    value={casa}
+                    onChange={(e) => setCasa(e.target.value)}
+                  />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold mb-1">Categoría</label>
-                  <input className="input-field" value={categoria} onChange={(e) => setCategoria(e.target.value)} />
+                  <input
+                    className="input-field"
+                    value={categoria}
+                    onChange={(e) => setCategoria(e.target.value)}
+                  />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold mb-1">Precio Compra (Q) *</label>
                   <input
@@ -340,6 +430,7 @@ export default function InventoryPage() {
                     placeholder="0.00"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold mb-1">Precio Unidad (Q) *</label>
                   <input
@@ -352,6 +443,7 @@ export default function InventoryPage() {
                     placeholder="0.00"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold mb-1">Precio Blister (Q)</label>
                   <input
@@ -363,6 +455,7 @@ export default function InventoryPage() {
                     placeholder="0.00"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold mb-1">Precio Caja (Q)</label>
                   <input
@@ -374,10 +467,17 @@ export default function InventoryPage() {
                     placeholder="0.00"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold mb-1">Stock</label>
-                  <input type="number" className="input-field" value={stock} onChange={(e) => setStock(e.target.value)} />
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={stock}
+                    onChange={(e) => setStock(e.target.value)}
+                  />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold mb-1">Posición</label>
                   <input
@@ -387,10 +487,16 @@ export default function InventoryPage() {
                     placeholder="Ej: A1"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold mb-1">Droguería</label>
-                  <input className="input-field" value={drogueria} onChange={(e) => setDrogueria(e.target.value)} />
+                  <input
+                    className="input-field"
+                    value={drogueria}
+                    onChange={(e) => setDrogueria(e.target.value)}
+                  />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold mb-1">Unidades Blister</label>
                   <input
@@ -400,6 +506,7 @@ export default function InventoryPage() {
                     onChange={(e) => setUnidadesBlister(e.target.value)}
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold mb-1">Unidades Caja</label>
                   <input
@@ -410,24 +517,26 @@ export default function InventoryPage() {
                   />
                 </div>
               </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => {
-                    resetForm();
-                    setIsAddOpen(false);
-                    setEditProd(null);
-                  }}
+                  onClick={closeModal}
                   className="flex-1 py-3 rounded-xl font-bold bg-muted text-muted-foreground interactive-btn"
                 >
                   Cancelar
                 </button>
+
                 <button
                   type="submit"
                   disabled={isPending}
                   className="flex-1 py-3 rounded-xl font-bold bg-primary text-white interactive-btn shadow-lg shadow-primary/20"
                 >
-                  {isPending ? "Guardando en Sheets..." : editProd ? "Actualizar" : "Guardar Producto"}
+                  {isPending
+                    ? "Guardando en Sheets..."
+                    : editProd
+                      ? "Actualizar"
+                      : "Guardar Producto"}
                 </button>
               </div>
             </form>

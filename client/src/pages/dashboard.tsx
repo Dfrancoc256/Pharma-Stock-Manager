@@ -106,7 +106,7 @@ const BAR_COLORS = [
 function toNumber(value: unknown): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (typeof value === "string") {
-    const normalized = value.replace(/,/g, "");
+    const normalized = value.replace(/,/g, "").replace(/Q/gi, "").trim();
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : 0;
   }
@@ -190,32 +190,13 @@ export default function DashboardPage() {
 
   const ventasPorDia = asArray<VentaPorDia>(data?.ventasPorDia);
   const ventasHoy = asArray<VentaHoy>(data?.ventasHoy);
+  const ventasPorMes = asArray<VentaPorMes>(data?.ventasPorMes);
+  const topCategorias = asArray<TopCategoria>(data?.topCategorias);
+  const topProductos = asArray<TopProducto>(data?.topProductos);
 
-  const ingresosHoy = ventasHoy.reduce((acc, v) => acc + toNumber(v?.total), 0);
-
-  const getGuatemalaDateKey = () => {
-    const now = new Date();
-    const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/Guatemala",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(now);
-
-    const year = parts.find((p) => p.type === "year")?.value ?? "";
-    const month = parts.find((p) => p.type === "month")?.value ?? "";
-    const day = parts.find((p) => p.type === "day")?.value ?? "";
-
-    return `${year}-${month}-${day}`;
-  };
-
-  const hoyKey = getGuatemalaDateKey();
-
-  const egresosHoy = ventasPorDia
-    .filter((d) => String(d?.fecha || "").startsWith(hoyKey))
-    .reduce((acc, d) => acc + toNumber(d?.egresos), 0);
-
-  const cajaHoy = ingresosHoy - egresosHoy;
+  const ingresosHoy = ingresos;
+  const egresosHoy = egresos;
+  const cajaHoy = caja;
 
   const fechaHoy = new Date().toLocaleDateString("es-GT", {
     weekday: "long",
@@ -223,15 +204,12 @@ export default function DashboardPage() {
     month: "long",
   });
 
-  const ventasPorMes = asArray<VentaPorMes>(data?.ventasPorMes);
   const mesData = ventasPorMes.map((m) => ({
     label: m?.label ?? "",
     ingresos: toNumber(m?.ingresos),
   }));
 
   const maxIngreso = mesData.length > 0 ? Math.max(...mesData.map((m) => m.ingresos)) : 0;
-  const topCategorias = asArray<TopCategoria>(data?.topCategorias);
-  const topProductos = asArray<TopProducto>(data?.topProductos);
 
   const [showVentasHoy, setShowVentasHoy] = useState(false);
   const [ventaExpandida, setVentaExpandida] = useState<string | null>(null);
@@ -285,14 +263,14 @@ export default function DashboardPage() {
             />
             <KpiCard
               icon={TrendingUp}
-              label="Ingresos totales"
+              label="Ingresos del día"
               color="border-green-500"
               value={`Q ${ingresos.toLocaleString("es-GT", { minimumFractionDigits: 2 })}`}
               trend="up"
             />
             <KpiCard
               icon={DollarSign}
-              label="Caja neta"
+              label="Caja neta del día"
               color={caja >= 0 ? "border-emerald-500" : "border-red-500"}
               value={`Q ${caja.toLocaleString("es-GT", { minimumFractionDigits: 2 })}`}
               trend={caja >= 0 ? "up" : "down"}
@@ -302,7 +280,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KpiCard
               icon={TrendingDown}
-              label="Egresos totales"
+              label="Egresos del día"
               color="border-red-500"
               value={`Q ${egresos.toLocaleString("es-GT", { minimumFractionDigits: 2 })}`}
               trend="down"

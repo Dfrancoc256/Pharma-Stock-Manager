@@ -81,13 +81,14 @@ export function registerSheetsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/auth/user",(req, res)=>{
-    const user =(req.session as any)?.user;
-    if (!user){
+  app.get("/api/auth/user", (req, res) => {
+    const user = (req.session as any)?.user;
+
+    if (!user) {
       return res.status(401).json({
         ok: false,
         message: "No autenticado",
-          });
+      });
     }
 
     res.json({
@@ -96,7 +97,7 @@ export function registerSheetsRoutes(app: Express) {
     });
   });
 
-  app.get("/api/sheets/dashboard", async (req, res) => {
+  app.get("/api/sheets/dashboard", async (_req, res) => {
     try {
       const stock = await getStock();
       const ventas = await getVentas();
@@ -124,17 +125,6 @@ export function registerSheetsRoutes(app: Express) {
         const s = toNumber(p?.Stock);
         return s > 0 && s <= 5;
       }).length;
-
-      const ingresos = safeVentas.reduce((acc, v) => acc + toNumber(v?.Total), 0);
-
-      const egresos = safeMovimientos
-        .filter((m) => {
-          const tipo = String(m?.Tipo ?? "").toLowerCase();
-          return tipo.includes("egreso") || tipo.includes("salida") || tipo.includes("gasto");
-        })
-        .reduce((acc, m) => acc + toNumber(m?.Monto), 0);
-
-      const cajaNeta = ingresos - egresos;
 
       const normalizeDateKey = (fechaRaw: unknown): string => {
         const fecha = String(fechaRaw ?? "").trim();
@@ -174,6 +164,23 @@ export function registerSheetsRoutes(app: Express) {
       };
 
       const todayKey = getGuatemalaDateKey();
+
+      const ventasHoySolo = safeVentas.filter((v) => normalizeDateKey(v?.Fecha) === todayKey);
+
+      const movimientosHoySolo = safeMovimientos.filter(
+        (m) => normalizeDateKey(m?.Fecha) === todayKey
+      );
+
+      const ingresos = ventasHoySolo.reduce((acc, v) => acc + toNumber(v?.Total), 0);
+
+      const egresos = movimientosHoySolo
+        .filter((m) => {
+          const tipo = String(m?.Tipo ?? "").toLowerCase();
+          return tipo.includes("egreso") || tipo.includes("salida") || tipo.includes("gasto");
+        })
+        .reduce((acc, m) => acc + toNumber(m?.Monto), 0);
+
+      const cajaNeta = ingresos - egresos;
 
       const ventasHoyBase = safeVentas.filter((v) => normalizeDateKey(v?.Fecha) === todayKey);
 
@@ -226,7 +233,9 @@ export function registerSheetsRoutes(app: Express) {
         }
       });
 
-      const ventasPorDia = Array.from(ventasPorDiaMap.values()).sort((a, b) => a.fecha.localeCompare(b.fecha));
+      const ventasPorDia = Array.from(ventasPorDiaMap.values()).sort((a, b) =>
+        a.fecha.localeCompare(b.fecha)
+      );
 
       const ventasPorMesMap = new Map<string, { label: string; ingresos: number; order: number }>();
 
@@ -312,7 +321,7 @@ export function registerSheetsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/sheets/stock", async (req, res) => {
+  app.get("/api/sheets/stock", async (_req, res) => {
     try {
       const data = await getStock();
       res.json({ ok: true, data });
@@ -439,7 +448,7 @@ export function registerSheetsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/sheets/ventas", async (req, res) => {
+  app.get("/api/sheets/ventas", async (_req, res) => {
     try {
       const data = await getVentas();
       res.json({ ok: true, data });
@@ -513,7 +522,7 @@ export function registerSheetsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/sheets/movimientos", async (req, res) => {
+  app.get("/api/sheets/movimientos", async (_req, res) => {
     try {
       const data = await getMovimientos();
       res.json({ ok: true, data });
@@ -737,7 +746,7 @@ export function registerSheetsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/sheets/pedidos", async (req, res) => {
+  app.get("/api/sheets/pedidos", async (_req, res) => {
     try {
       const data = await getPedidos();
       res.json({ ok: true, data });
@@ -858,8 +867,6 @@ export function registerSheetsRoutes(app: Express) {
     }
   });
 
-  // ==================== USUARIOS ====================
-
   app.get("/api/sheets/users", async (_req, res) => {
     try {
       const data = await getUsuariosSheet();
@@ -922,13 +929,27 @@ export function registerSheetsRoutes(app: Express) {
     }
   });
 
-  app.get("/api/sheets/fiadores", async (req, res) => {
+  app.get("/api/sheets/fiadores", async (_req, res) => {
     try {
-      const {nombre, telefono, direccion, limiteCredito, saldoInicial } = req.body;
-      if(!nombre){
+      const data = await getFiadores();
+      res.json({ ok: true, data });
+    } catch (error) {
+      console.error("fiadores error:", error);
+      res.status(500).json({
+        ok: false,
+        message: "Error al cargar fiadores",
+      });
+    }
+  });
+
+  app.post("/api/sheets/fiadores", async (req, res) => {
+    try {
+      const { nombre, telefono, direccion, limiteCredito, saldoInicial } = req.body;
+
+      if (!nombre) {
         return res.status(400).json({
           ok: false,
-          messege: "El nombre del fiador es obligatorio",
+          message: "El nombre del fiador es obligatorio",
         });
       }
 
@@ -938,14 +959,18 @@ export function registerSheetsRoutes(app: Express) {
         direccion: String(direccion || "").trim(),
         limiteCredito: Number(limiteCredito) || 0,
         saldoInicial: Number(saldoInicial) || 0,
-      })
+      });
+
       res.json({
         ok: true,
         data: result,
-      })
+      });
     } catch (error: any) {
-      console.error("fiadores error:", error);
-      res.status(500).json({ ok: false, messege: error?.message || "Error al actualizar fiador", });
+      console.error("create fiador error:", error);
+      res.status(500).json({
+        ok: false,
+        message: error?.message || "Error al crear fiador",
+      });
     }
   });
 }
