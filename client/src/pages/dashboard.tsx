@@ -76,6 +76,9 @@ interface DashboardData {
   ingresos?: string;
   egresos?: string;
   cajaNeta?: string;
+  ingresosHoy?: string;
+  egresosHoy?: string;
+  cajaHoy?: string;
   fiadoPendiente?: string;
   ventasContadoHoy?: string;
   ventasFiadoHoy?: string;
@@ -188,15 +191,14 @@ export default function DashboardPage() {
   const egresos = toNumber(data?.egresos);
   const caja = toNumber(data?.cajaNeta);
 
-  const ventasPorDia = asArray<VentaPorDia>(data?.ventasPorDia);
+  const ingresosHoy = toNumber(data?.ingresosHoy);
+  const egresosHoy = toNumber(data?.egresosHoy);
+  const cajaHoy = toNumber(data?.cajaHoy);
+
   const ventasHoy = asArray<VentaHoy>(data?.ventasHoy);
   const ventasPorMes = asArray<VentaPorMes>(data?.ventasPorMes);
   const topCategorias = asArray<TopCategoria>(data?.topCategorias);
   const topProductos = asArray<TopProducto>(data?.topProductos);
-
-  const ingresosHoy = ingresos;
-  const egresosHoy = egresos;
-  const cajaHoy = caja;
 
   const fechaHoy = new Date().toLocaleDateString("es-GT", {
     weekday: "long",
@@ -263,14 +265,14 @@ export default function DashboardPage() {
             />
             <KpiCard
               icon={TrendingUp}
-              label="Ingresos del día"
+              label="Ingresos totales"
               color="border-green-500"
               value={`Q ${ingresos.toLocaleString("es-GT", { minimumFractionDigits: 2 })}`}
               trend="up"
             />
             <KpiCard
               icon={DollarSign}
-              label="Caja neta del día"
+              label="Caja neta total"
               color={caja >= 0 ? "border-emerald-500" : "border-red-500"}
               value={`Q ${caja.toLocaleString("es-GT", { minimumFractionDigits: 2 })}`}
               trend={caja >= 0 ? "up" : "down"}
@@ -280,7 +282,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KpiCard
               icon={TrendingDown}
-              label="Egresos del día"
+              label="Egresos totales"
               color="border-red-500"
               value={`Q ${egresos.toLocaleString("es-GT", { minimumFractionDigits: 2 })}`}
               trend="down"

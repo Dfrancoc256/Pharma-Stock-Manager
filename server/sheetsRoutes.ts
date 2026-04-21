@@ -165,15 +165,12 @@ export function registerSheetsRoutes(app: Express) {
 
       const todayKey = getGuatemalaDateKey();
 
-      const ventasHoySolo = safeVentas.filter((v) => normalizeDateKey(v?.Fecha) === todayKey);
+      // =========================
+      // TOTALES ACUMULADOS
+      // =========================
+      const ingresos = safeVentas.reduce((acc, v) => acc + toNumber(v?.Total), 0);
 
-      const movimientosHoySolo = safeMovimientos.filter(
-        (m) => normalizeDateKey(m?.Fecha) === todayKey
-      );
-
-      const ingresos = ventasHoySolo.reduce((acc, v) => acc + toNumber(v?.Total), 0);
-
-      const egresos = movimientosHoySolo
+      const egresos = safeMovimientos
         .filter((m) => {
           const tipo = String(m?.Tipo ?? "").toLowerCase();
           return tipo.includes("egreso") || tipo.includes("salida") || tipo.includes("gasto");
@@ -182,10 +179,31 @@ export function registerSheetsRoutes(app: Express) {
 
       const cajaNeta = ingresos - egresos;
 
-      const ventasHoyBase = safeVentas.filter((v) => normalizeDateKey(v?.Fecha) === todayKey);
+      // =========================
+      // TOTALES DEL DÍA
+      // =========================
+      const ventasHoySolo = safeVentas.filter((v) => normalizeDateKey(v?.Fecha) === todayKey);
 
+      const movimientosHoySolo = safeMovimientos.filter(
+        (m) => normalizeDateKey(m?.Fecha) === todayKey
+      );
+
+      const ingresosHoy = ventasHoySolo.reduce((acc, v) => acc + toNumber(v?.Total), 0);
+
+      const egresosHoy = movimientosHoySolo
+        .filter((m) => {
+          const tipo = String(m?.Tipo ?? "").toLowerCase();
+          return tipo.includes("egreso") || tipo.includes("salida") || tipo.includes("gasto");
+        })
+        .reduce((acc, m) => acc + toNumber(m?.Monto), 0);
+
+      const cajaHoy = ingresosHoy - egresosHoy;
+
+      // =========================
+      // VENTAS DE HOY DETALLADAS
+      // =========================
       const ventasHoy = await Promise.all(
-        ventasHoyBase.map(async (v) => {
+        ventasHoySolo.map(async (v) => {
           const idVenta = String(v?.ID_Venta ?? "");
           const detalle = idVenta ? await getDetalleVenta(idVenta) : [];
 
@@ -208,6 +226,9 @@ export function registerSheetsRoutes(app: Express) {
         })
       );
 
+      // =========================
+      // VENTAS / EGRESOS POR DÍA
+      // =========================
       const ventasPorDiaMap = new Map<string, { fecha: string; ingresos: number; egresos: number }>();
 
       safeVentas.forEach((v) => {
@@ -237,6 +258,9 @@ export function registerSheetsRoutes(app: Express) {
         a.fecha.localeCompare(b.fecha)
       );
 
+      // =========================
+      // VENTAS POR MES
+      // =========================
       const ventasPorMesMap = new Map<string, { label: string; ingresos: number; order: number }>();
 
       safeVentas.forEach((v) => {
@@ -258,6 +282,9 @@ export function registerSheetsRoutes(app: Express) {
 
       const ventasPorMes = Array.from(ventasPorMesMap.values()).sort((a, b) => a.order - b.order);
 
+      // =========================
+      // TOP CATEGORÍAS
+      // =========================
       const topCategoriasMap = new Map<string, number>();
       safeStock.forEach((p) => {
         const cat = String(p?.Categoria ?? "Sin categoría").trim() || "Sin categoría";
@@ -269,6 +296,9 @@ export function registerSheetsRoutes(app: Express) {
         .sort((a, b) => b.cantidad - a.cantidad)
         .slice(0, 8);
 
+      // =========================
+      // TOP PRODUCTOS
+      // =========================
       const topProductosMap = new Map<string, { id: string; nombre: string; total: number; cantidad: number }>();
 
       for (const venta of safeVentas) {
@@ -308,6 +338,9 @@ export function registerSheetsRoutes(app: Express) {
           ingresos: ingresos.toFixed(2),
           egresos: egresos.toFixed(2),
           cajaNeta: cajaNeta.toFixed(2),
+          ingresosHoy: ingresosHoy.toFixed(2),
+          egresosHoy: egresosHoy.toFixed(2),
+          cajaHoy: cajaHoy.toFixed(2),
           ventasHoy,
           ventasPorDia,
           ventasPorMes,
