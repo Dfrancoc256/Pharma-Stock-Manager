@@ -17,6 +17,7 @@ import {
   deletePedidoSheet,
   getUsuariosSheet,
   createUsuarioSheet,
+  createFiadorSheet,
   updateUsuarioSheet,
 } from "./googleSheets";
 
@@ -61,13 +62,15 @@ export function registerSheetsRoutes(app: Express) {
         });
       }
 
+      (req.session as any).user = {
+        usuario: String(user.Usuario ?? ""),
+        rol: String(user.Rol ?? "VENDEDOR"),
+        activo: String(user.Activo ?? "TRUE"),
+      };
+
       return res.json({
         ok: true,
-        data: {
-          usuario: String(user.Usuario ?? ""),
-          rol: String(user.Rol ?? "VENDEDOR"),
-          activo: String(user.Activo ?? "TRUE"),
-        },
+        data: (req.session as any).user,
       });
     } catch (error) {
       console.error("login error:", error);
@@ -76,6 +79,21 @@ export function registerSheetsRoutes(app: Express) {
         message: "Error al iniciar sesión",
       });
     }
+  });
+
+  app.get("/api/auth/user",(req, res)=>{
+    const user =(req.session as any)?.user;
+    if (!user){
+      return res.status(401).json({
+        ok: false,
+        message: "No autenticado",
+          });
+    }
+
+    res.json({
+      ok: true,
+      data: user,
+    });
   });
 
   app.get("/api/sheets/dashboard", async (req, res) => {
@@ -906,11 +924,28 @@ export function registerSheetsRoutes(app: Express) {
 
   app.get("/api/sheets/fiadores", async (req, res) => {
     try {
-      const data = await getFiadores();
-      res.json({ ok: true, data });
-    } catch (error) {
+      const {nombre, telefono, direccion, limiteCredito, saldoInicial } = req.body;
+      if(!nombre){
+        return res.status(400).json({
+          ok: false,
+          messege: "El nombre del fiador es obligatorio",
+        });
+      }
+
+      const result = await createFiadorSheet({
+        nombre: String(nombre).trim(),
+        telefono: String(telefono || "").trim(),
+        direccion: String(direccion || "").trim(),
+        limiteCredito: Number(limiteCredito) || 0,
+        saldoInicial: Number(saldoInicial) || 0,
+      })
+      res.json({
+        ok: true,
+        data: result,
+      })
+    } catch (error: any) {
       console.error("fiadores error:", error);
-      res.status(500).json({ ok: false });
+      res.status(500).json({ ok: false, messege: error?.message || "Error al actualizar fiador", });
     }
   });
 }

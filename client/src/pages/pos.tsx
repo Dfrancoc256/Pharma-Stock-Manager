@@ -88,7 +88,10 @@ function getPrecio(p: Producto, tipo: TipoPrecio): number {
 }
 
 function getPrecioFinal(item: CartItem): number {
-  if (item.precioEditado !== undefined && item.precioEditado > 0) {
+  if (item.precioEditado !== undefined &&
+      item.precioEditado !== null &&
+      item.precioEditado > 0
+  ) {
     return item.precioEditado;
   }
   return getPrecio(item.producto, item.tipoPrecio);
@@ -351,19 +354,33 @@ export default function POSPage() {
     setCart((prev) =>
       prev.map((i) =>
         i.producto.ID === id && i.tipoPrecio === oldTipo
-          ? { ...i, tipoPrecio: newTipo, precioEditado: 0 }
+          ? { ...i, tipoPrecio: newTipo, precioEditado: undefined }
           : i
       )
     );
   };
 
   const updatePrecioEditado = (id: string, tipoPrecio: TipoPrecio, value: string) => {
-    const numero = parseFloat(value);
+    const texto = value.trim();
+    let numero: number | undefined;
+
+    if(texto === ""){
+      numero = undefined;
+    } else{
+      const  parsed = parseFloat(texto);
+      if(!isNaN(parsed)){
+        numero = Math.max(0, parsed);
+      }else{
+        return;
+      }
+    }
 
     setCart((prev) =>
       prev.map((i) =>
         i.producto.ID === id && i.tipoPrecio === tipoPrecio
-          ? { ...i, precioEditado: isNaN(numero) ? 0 : numero }
+          ? { ...i,
+              precioEditado: numero
+            }
           : i
       )
     );
@@ -513,15 +530,18 @@ export default function POSPage() {
 
   const addToCart = (producto: Producto) => {
     setCart((prev) => {
-      const existing = prev.find((i) => i.producto.ID === producto.ID && i.tipoPrecio === "unidad");
+      const existing = prev.find(
+          (i) => i.producto.ID === producto.ID && i.tipoPrecio === "unidad");
       if (existing) {
         return prev.map((i) =>
           i.producto.ID === producto.ID && i.tipoPrecio === "unidad"
-            ? { ...i, cantidad: i.cantidad + 1 }
+            ? { ...i, cantidad: i.cantidad + 1,
+              precioEditado: i.precioEditado,
+              }
             : i
         );
       }
-      return [...prev, { producto, cantidad: 1, tipoPrecio: "unidad", precioEditado: 0 }];
+      return [...prev, { producto, cantidad: 1, tipoPrecio: "unidad", precioEditado: undefined, }];
     });
   };
 
