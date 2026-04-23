@@ -38,7 +38,20 @@ type SheetRow = Record<string, any>;
 
 function toNumber(value: any): number {
   if (value === null || value === undefined || value === "") return 0;
-  const clean = String(value).replace(/,/g, "").replace(/Q/gi, "").trim();
+
+  if (typeof value === "number") return value;
+
+  let clean = String(value)
+    .replace(/Q/gi, "")
+    .replace(/,/g, "")
+    .trim();
+
+  // 🔥 SOLUCIÓN EXTRA POR SI VIENE 2050 en vez de 20.50
+  if (/^\d{3,}$/.test(clean)) {
+    // ejemplo: 2050 → 20.50
+    return Number(clean) / 100;
+  }
+
   const n = Number(clean);
   return Number.isFinite(n) ? n : 0;
 }
@@ -71,7 +84,7 @@ export async function leerHoja(nombreHoja: string): Promise<string[][]> {
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: nombreHoja,
-    valueRenderOption: "FORMATTED_VALUE",
+    valueRenderOption: "UNFORMATTED_VALUE",
   });
 
   const data = (response.data.values as string[][]) || [];
