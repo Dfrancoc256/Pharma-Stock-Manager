@@ -26,7 +26,7 @@ async function getSheetClient() {
 }
 
 // ---- CACHE ----
-const sheetCache = new Map<string, { data: string[][]; ts: number }>();
+const sheetCache = new Map<string, { data: any[][]; ts: number }>();
 const CACHE_TTL_MS = 30_000;
 
 function invalidarCache(...hojas: string[]) {
@@ -39,18 +39,14 @@ type SheetRow = Record<string, any>;
 function toNumber(value: any): number {
   if (value === null || value === undefined || value === "") return 0;
 
-  if (typeof value === "number") return value;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
 
-  let clean = String(value)
+  const clean = String(value)
     .replace(/Q/gi, "")
     .replace(/,/g, "")
     .trim();
-
-  // 🔥 SOLUCIÓN EXTRA POR SI VIENE 2050 en vez de 20.50
-  if (/^\d{3,}$/.test(clean)) {
-    // ejemplo: 2050 → 20.50
-    return Number(clean) / 100;
-  }
 
   const n = Number(clean);
   return Number.isFinite(n) ? n : 0;
@@ -60,7 +56,7 @@ function toInt(value: any): number {
   return Math.trunc(toNumber(value));
 }
 
-function rowsToObjects(rows: string[][]): SheetRow[] {
+function rowsToObjects(rows: any[][]): SheetRow[] {
   if (!rows || rows.length < 2) return [];
   const headers = rows[0];
 
@@ -85,9 +81,10 @@ export async function leerHoja(nombreHoja: string): Promise<string[][]> {
     spreadsheetId: SPREADSHEET_ID,
     range: nombreHoja,
     valueRenderOption: "UNFORMATTED_VALUE",
+    dateTimeRenderOption: "FORMATTED_STRING",
   });
 
-  const data = (response.data.values as string[][]) || [];
+  const data = (response.data.values as any[][]) || [];
   sheetCache.set(nombreHoja, { data, ts: Date.now() });
   return data;
 }
