@@ -81,6 +81,14 @@ type ProductoInfo = {
   producto: { id: string; nombre: string; detalle: string; categoria: string };
 };
 
+function safeText(value: unknown): string {
+  return String(value ?? "");
+}
+
+function safeLower(value: unknown): string {
+  return safeText(value).toLowerCase();
+}
+
 function getPrecio(p: Producto, tipo: TipoPrecio): number {
   if (tipo === "blister") return parseFloat(p["Precio blister"] || "0");
   if (tipo === "caja") return parseFloat(p["Precio caja"] || "0");
@@ -498,17 +506,18 @@ export default function POSPage() {
 
   const localFiltered = useMemo(() => {
     const listaProductos = safeArray<Producto>(productos);
-    const base = safeArray<Producto>(listaProductos).filter((p) => p?.ID && p?.Nombre);
+    const base = listaProductos.filter((p) => p?.ID && p?.Nombre);
 
     if (!search.trim()) return base;
 
-    const q = search.toLowerCase();
+    const q = safeLower(search);
+
     return base.filter(
       (p) =>
-        (p.Nombre || "").toLowerCase().includes(q) ||
-        (p.Detalle || "").toLowerCase().includes(q) ||
-        (p.Casa || "").toLowerCase().includes(q) ||
-        (p.Categoria || "").toLowerCase().includes(q)
+        safeLower(p.Nombre).includes(q) ||
+        safeLower(p.Detalle).includes(q) ||
+        safeLower(p.Casa).includes(q) ||
+        safeLower(p.Categoria).includes(q)
     );
   }, [search, productos]);
 

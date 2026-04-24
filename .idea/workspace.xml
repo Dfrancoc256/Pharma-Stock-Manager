@@ -6,7 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="d04f7485-3ba2-4a00-b0e5-f7f6a4c63c2d" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server/googleSheets.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/googleSheets.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/pages/pos.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/pages/pos.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -114,7 +114,8 @@
       <workItem from="1776569721416" duration="34433000" />
       <workItem from="1776717690134" duration="8567000" />
       <workItem from="1776782237611" duration="10922000" />
-      <workItem from="1776914952197" duration="1879000" />
+      <workItem from="1776914952197" duration="3104000" />
+      <workItem from="1776990616880" duration="310000" />
     </task>
     <servers />
   </component>
