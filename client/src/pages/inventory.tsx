@@ -7,18 +7,21 @@ import { Plus, Package, Trash2, Search, Edit2 } from "lucide-react";
 interface Producto {
   ID: string;
   Nombre: string;
-  Detalle: string;
-  Casa: string;
-  Categoria: string;
-  "Precio compra": string | number;
-  "Precio unidad": string | number;
-  "Precio blister": string | number;
-  "Precio caja": string | number;
-  Posicion: string;
-  Stock: string | number;
-  Drogueria: string;
-  "Unidades blister": string | number;
-  "Unidades caja": string | number;
+  Detalle: string | number | null;
+  Casa: string | number | null;
+  Categoria: string | number | null;
+
+  "Precio compra": string | number | null;
+  "Precio unidad": string | number | null;
+  "Precio blister": string | number | null;
+  "Precio caja": string | number | null;
+
+  Posicion: string | number | null;
+  Stock: string | number | null;
+  Drogueria: string | number | null;
+
+  "Unidades blister": string | number | null;
+  "Unidades caja": string | number | null;
 }
 
 function safeArray<T>(value: unknown): T[] {
@@ -217,12 +220,19 @@ export default function InventoryPage() {
       if (!p.ID) return false;
       if (!q) return true;
 
+      const nombre = String(p.Nombre ?? "").toLowerCase();
+      const casa = String(p.Casa ?? "").toLowerCase();
+      const categoria = String(p.Categoria ?? "").toLowerCase();
+      const detalle = String(p.Detalle ?? "").toLowerCase();
+
       return (
-        (p.Nombre || "").toLowerCase().includes(q) ||
-        (p.Casa || "").toLowerCase().includes(q) ||
-        (p.Categoria || "").toLowerCase().includes(q)
+        nombre.includes(q) ||
+        casa.includes(q) ||
+        categoria.includes(q) ||
+        detalle.includes(q)
       );
     });
+
   }, [productos, search]);
 
   const isOpen = isAddOpen || !!editProd;

@@ -165,28 +165,85 @@ export async function createProductoSheet(prod: {
   unidadesBlister?: number;
   unidadesCaja?: number;
 }) {
+
   const rows = await leerHoja("Stock");
-  const lastId = rows.length > 1 ? parseInt(rows[rows.length - 1][0]) || 0 : 0;
+
+  if (!rows || rows.length < 1) {
+    throw new Error("La hoja Stock no tiene encabezados");
+  }
+
+  const headers = rows[0];
+
+  const lastId =
+    rows.length > 1
+      ? parseInt(String(rows[rows.length - 1][0] ?? "0")) || 0
+      : 0;
+
   const newId = lastId + 1;
 
-  await appendFila("Stock", [
-    newId,
-    prod.nombre,
-    prod.detalle ?? "",
-    prod.casa ?? "",
-    prod.categoria ?? "",
-    toNumber(prod.precioCompra),
-    toNumber(prod.precioUnidad),
-    toNumber(prod.precioBlister ?? 0),
-    toNumber(prod.precioCaja ?? 0),
-    prod.posicion ?? "",
-    toInt(prod.stock),
-    prod.drogueria ?? "",
-    toInt(prod.unidadesBlister ?? 0),
-    toInt(prod.unidadesCaja ?? 0),
-  ]);
+  // arma fila respetando orden REAL de columnas
+  const nuevaFila = headers.map((col: string) => {
 
-  return { id: String(newId), nombre: prod.nombre, stock: toInt(prod.stock) };
+    switch (String(col).trim().toLowerCase()) {
+
+      case "id":
+        return newId;
+
+      case "nombre":
+        return prod.nombre;
+
+      case "detalle":
+        return prod.detalle ?? "";
+
+      case "casa":
+        return prod.casa ?? "";
+
+      case "categoria":
+        return prod.categoria ?? "";
+
+      case "precio compra":
+        return toNumber(prod.precioCompra);
+
+      case "precio unidad":
+        return toNumber(prod.precioUnidad);
+
+      case "precio blister":
+        return toNumber(prod.precioBlister ?? 0);
+
+      case "precio caja":
+        return toNumber(prod.precioCaja ?? 0);
+
+      case "posicion":
+        return prod.posicion ?? "";
+
+      case "stock":
+        return toInt(prod.stock);
+
+      case "drogueria":
+        return prod.drogueria ?? "";
+
+      case "unidades blister":
+        return toInt(prod.unidadesBlister ?? 0);
+
+      case "unidades caja":
+        return toInt(prod.unidadesCaja ?? 0);
+
+      default:
+        return "";
+    }
+
+  });
+
+  await appendFila(
+    "Stock",
+    nuevaFila
+  );
+
+  return {
+    id: String(newId),
+    nombre: prod.nombre,
+    stock: toInt(prod.stock),
+  };
 }
 
 export async function updateProductoSheet(
@@ -297,7 +354,7 @@ export async function getDetalleVenta(idVenta: string) {
   const rows = await leerHoja("Detalle_Venta");
   const all = rowsToObjects(rows).map((r) => ({
     ...r,
-    ID_Venta: String(r["Detalle_Venta"] ?? r["ID_Venta"] ?? ""),
+    ID_Venta: String(r["ID_Venta"] ?? ""),
     Producto_ID: String(r["Producto_ID"] ?? ""),
     Nombre: r["Nombre"] ?? "",
     TipoPrecio: r["Tipo_precio"] ?? r["TipoPrecio"] ?? "",
