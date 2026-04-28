@@ -6,8 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="d04f7485-3ba2-4a00-b0e5-f7f6a4c63c2d" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/pages/inventory.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/pages/inventory.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server/googleSheets.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/googleSheets.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -93,8 +91,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-PY-253.29346.142" />
-        <option value="bundled-python-sdk-f2b7a9f6281b-6e1f45a539f7-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-253.29346.142" />
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-PY-253.30387.127" />
+        <option value="bundled-python-sdk-3944b0c99280-6d6dccd035ac-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-253.30387.127" />
       </set>
     </attachedChunks>
   </component>
@@ -117,7 +115,8 @@
       <workItem from="1776782237611" duration="10922000" />
       <workItem from="1776914952197" duration="3104000" />
       <workItem from="1776990616880" duration="680000" />
-      <workItem from="1777256508445" duration="1145000" />
+      <workItem from="1777256508445" duration="1812000" />
+      <workItem from="1777395663184" duration="362000" />
     </task>
     <servers />
   </component>
