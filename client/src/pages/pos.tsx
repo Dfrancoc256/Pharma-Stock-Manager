@@ -529,7 +529,7 @@ export default function POSPage() {
       return listaIA
         .map((r) => ({
           result: r,
-          producto: listaProductos.find((p) => p.ID === r.id),
+          producto: listaProductos.find((p) =>String(p.ID).trim() === String(r.id).trim()),
         }))
         .filter((x) => x.producto) as { result: AIResultado; producto: Producto }[];
     }
