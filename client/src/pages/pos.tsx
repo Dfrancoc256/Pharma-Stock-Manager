@@ -504,33 +504,63 @@ export default function POSPage() {
     },
   });
 
+
   const localFiltered = useMemo(() => {
-    const listaProductos = safeArray<Producto>(productos);
-    const base = listaProductos.filter((p) => p?.ID && p?.Nombre);
+    const base = safeArray<Producto>(productos)
+      .filter((p) => p?.ID && p?.Nombre);
 
-    if (!search.trim()) return base;
+    const unicos = Array.from(
+      new Map(
+        base.map((p) => [
+          `${String(p.ID).trim()}-${safeLower(p.Nombre)}-${safeLower(p.Detalle)}`,
+          p,
+        ])
+      ).values()
+    );
 
-    const q = safeLower(search);
+    if (!search.trim()) return unicos;
 
-    return base.filter(
-      (p) =>
-        safeLower(p.Nombre).includes(q) ||
-        safeLower(p.Detalle).includes(q) ||
-        safeLower(p.Casa).includes(q) ||
-        safeLower(p.Categoria).includes(q)
+    const q = safeLower(search.trim());
+
+    return unicos.filter((p) =>
+      safeLower(p.Nombre).includes(q) ||
+      safeLower(p.Detalle).includes(q) ||
+      safeLower(p.Casa).includes(q) ||
+      safeLower(p.Categoria).includes(q)
     );
   }, [search, productos]);
 
+
   const displayedProducts = useMemo(() => {
-    const listaProductos = safeArray<Producto>(productos);
+    const listaProductos = safeArray<Producto>(productos)
+      .filter((p) => p?.ID && p?.Nombre);
+
+    const listaUnica = Array.from(
+      new Map(
+        listaProductos.map((p) => [
+          `${String(p.ID).trim()}-${safeLower(p.Nombre)}-${safeLower(p.Detalle)}`,
+          p,
+        ])
+      ).values()
+    );
+
     const listaIA = Array.isArray(aiResultados) ? aiResultados : null;
 
     if (listaIA !== null) {
       return listaIA
-        .map((r) => ({
-          result: r,
-          producto: listaProductos.find((p) =>String(p.ID).trim() === String(r.id).trim()),
-        }))
+        .map((r) => {
+          const producto =
+            listaUnica.find(
+              (p) => String(p.ID).trim() === String(r.id).trim()
+            ) ||
+            listaUnica.find(
+              (p) =>
+                safeLower(p.Nombre).includes(safeLower(r.nombre)) ||
+                safeLower(r.nombre).includes(safeLower(p.Nombre))
+            );
+
+          return { result: r, producto };
+        })
         .filter((x) => x.producto) as { result: AIResultado; producto: Producto }[];
     }
 
@@ -538,19 +568,38 @@ export default function POSPage() {
   }, [aiResultados, localFiltered, productos]);
 
   const addToCart = (producto: Producto) => {
-    setCart((prev) => {
+    setCart((prev): CartItem[] => {
+      const keyProducto =
+        `${producto.ID}-${safeLower(producto.Nombre)}-${safeLower(producto.Detalle)}`;
+
       const existing = prev.find(
-          (i) => i.producto.ID === producto.ID && i.tipoPrecio === "unidad");
+        (i) =>
+          `${i.producto.ID}-${safeLower(i.producto.Nombre)}-${safeLower(i.producto.Detalle)}` === keyProducto &&
+          i.tipoPrecio === "unidad"
+      );
+
       if (existing) {
         return prev.map((i) =>
-          i.producto.ID === producto.ID && i.tipoPrecio === "unidad"
-            ? { ...i, cantidad: i.cantidad + 1,
-              precioEditado: i.precioEditado,
+          `${i.producto.ID}-${safeLower(i.producto.Nombre)}-${safeLower(i.producto.Detalle)}` === keyProducto &&
+          i.tipoPrecio === "unidad"
+            ? {
+                ...i,
+                cantidad: i.cantidad + 1,
+                precioEditado: i.precioEditado,
               }
             : i
         );
       }
-      return [...prev, { producto, cantidad: 1, tipoPrecio: "unidad", precioEditado: undefined, }];
+
+      return [
+        ...prev,
+        {
+          producto,
+          cantidad: 1,
+          tipoPrecio: "unidad" as TipoPrecio,
+          precioEditado: undefined,
+        },
+      ];
     });
   };
 
